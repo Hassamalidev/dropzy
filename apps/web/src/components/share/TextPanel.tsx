@@ -73,7 +73,7 @@ export function TextPanel({ query }: { query: string }) {
   };
 
   return (
-    <section className="flex min-w-0 flex-col gap-4 p-4 sm:p-6" aria-labelledby="text-title">
+    <section className="flex min-w-0 flex-col gap-3.5 p-4 sm:p-5" aria-labelledby="text-title">
       <header className="flex min-h-9 items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <h2 id="text-title" className="font-semibold text-slate-900 dark:text-white">
@@ -104,8 +104,8 @@ export function TextPanel({ query }: { query: string }) {
           placeholder={t.text.placeholder}
           aria-label={t.text.placeholder}
           maxLength={TEXT_MAX}
-          rows={4}
-          className="input min-h-32 resize-y"
+          rows={3}
+          className="input min-h-28 resize-y"
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex gap-1">
@@ -136,7 +136,7 @@ export function TextPanel({ query }: { query: string }) {
       ) : shown.length === 0 ? (
         <p className="px-1 text-sm text-slate-500 dark:text-slate-400">{t.text.noMatches}</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2 md:-mr-2 md:max-h-[max(10rem,calc(100dvh-46rem))] md:overflow-y-auto md:pr-2">
           {shown.map((i) => (
             <TextItem key={i.id} item={i} />
           ))}

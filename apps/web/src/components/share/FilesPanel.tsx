@@ -42,7 +42,7 @@ export function FilesPanel({ query }: { query: string }) {
   const hint = uploads === 'on' ? (direct ? t.files.hintBoth(up) : t.files.hintUploadOnly(up)) : t.files.hintDirectOnly;
 
   return (
-    <section className="flex min-w-0 flex-col gap-4 p-4 sm:p-6" aria-labelledby="files-title">
+    <section className="flex min-w-0 flex-col gap-3.5 p-4 sm:p-5" aria-labelledby="files-title">
       <header className="flex min-h-9 items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <h2 id="files-title" className="font-semibold text-slate-900 dark:text-white">
@@ -85,7 +85,7 @@ export function FilesPanel({ query }: { query: string }) {
       ) : shown.length === 0 ? (
         <p className="px-1 text-sm text-slate-500 dark:text-slate-400">{t.files.noMatches}</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2 md:-mr-2 md:max-h-[max(10rem,calc(100dvh-46rem))] md:overflow-y-auto md:pr-2">
           {shown.map((r) => (
             <FileItem key={r.id} row={r} />
           ))}
@@ -141,7 +141,7 @@ function DropZone({ hint, onFiles }: { hint: string; onFiles: (files: File[]) =>
 
   return (
     <>
-      <div className="flex flex-col items-center gap-2.5 rounded-2xl border-2 border-dashed border-slate-200 px-4 py-6 text-center transition-colors hover:border-accent/60 dark:border-slate-700">
+      <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 px-4 py-5 text-center transition-colors hover:border-accent/60 dark:border-slate-700">
         <span className="inline-flex size-12 items-center justify-center rounded-full bg-accent-soft text-accent-ink">
           <Upload size={20} aria-hidden />
         </span>

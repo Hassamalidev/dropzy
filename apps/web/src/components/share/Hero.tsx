@@ -15,7 +15,7 @@ export function Hero({ mode }: { mode: Mode }) {
   const live = conn === 'open';
 
   return (
-    <section className="flex flex-col items-center gap-3 pt-6 pb-6 text-center sm:pt-8">
+    <section className="flex flex-col items-center gap-2.5 pt-5 pb-5 text-center sm:pt-6">
       <h1 className="text-balance text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl dark:text-white">{h.title}</h1>
       <p className="text-balance text-slate-600 dark:text-slate-300">{h.subtitle}</p>
       <div className="mt-1 flex flex-wrap justify-center gap-2">
