@@ -1,5 +1,9 @@
 import {
   COUNTDOWN_TICK,
+  DIRECT_FILE_TTL,
+  IOS_DIRECT_CAP,
+  MAX_DIRECT_TARGETS,
+  type SignalData,
   type DownloadUrlAck,
   GiB,
   DEVICE_LABEL,
@@ -19,9 +23,10 @@ import { t } from '../strings/en';
 import { bump, initBadge } from './badge';
 import { copyText } from './clipboard';
 import { decryptText, encryptText } from './crypto/keys';
-import { deleteToken, deviceId, deviceName, deviceType, saveDeleteToken, setDeviceName } from './device';
+import { deleteToken, deviceId, deviceName, deviceType, isIOS, saveDeleteToken, setDeviceName } from './device';
 import { nextUtcMidnight } from './format';
-import { clickLink, openSink, pipeTo, saveBlob, type startPicker } from './sink';
+import type { Direct } from './direct';
+import { cleanTmp, clickLink, hasOpfs, openSink, pipeTo, saveBlob, type startPicker } from './sink';
 import { type Outgoing, RequestError, SpaceSocket, type Terminal } from './socket';
 import { makeThumb } from './thumbs';
 import { type Source, UploadCancelled, runUpload } from './upload/uploader';
@@ -51,6 +56,8 @@ export type Transfer = {
   speed: number; // bytes/s
   state: 'active' | 'done' | 'failed';
   peer?: string; // the other device's name
+  saved?: boolean; // received directly and saved
+  recovered?: boolean;
 };
 
 export type AppState = {
@@ -79,7 +86,7 @@ export class Space {
   private tickTimer = 0;
   private pendingDeletes = new Map<string, number>();
   protected aborts = new Map<string, AbortController>();
-  private samples = new Map<string, { t: number; loaded: number; speed: number }>();
+  protected samples = new Map<string, { t: number; loaded: number; speed: number }>();
   readonly maxUpload = Number(import.meta.env.PUBLIC_MAX_UPLOAD_BYTES) || 2 * GiB;
   /** Hooks for later features (direct transfer, uploads). */
   protected listeners: ((m: S2C) => void)[] = [];
@@ -130,12 +137,20 @@ export class Space {
     if (this.store.get().conn === 'missing_key') return;
     initBadge();
     addEventListener('offline', this.onOffline);
-    this.socket.start();
+    addEventListener('beforeunload', this.onBeforeUnload);
+    this.on((m) => {
+      if (m.t === 'signal') void this.loadDirect().then((d) => d.onSignal(m.from, m.data as SignalData));
+    });
+    void this.prepareCaps().finally(() => this.socket.start());
+    void this.recover();
+    void cleanTmp(DIRECT_FILE_TTL);
     this.tick();
   }
 
   stop() {
     removeEventListener('offline', this.onOffline);
+    removeEventListener('beforeunload', this.onBeforeUnload);
+    void this.directP?.then((d) => d.closeAll());
     this.socket.stop();
     clearTimeout(this.tickTimer);
   }
@@ -146,8 +161,22 @@ export class Space {
 
   // ───────────────────────── connection ─────────────────────────
 
+  private capsCache = { direct: false, maxDirectBytes: 0 };
+
   protected caps() {
-    return { direct: false, maxDirectBytes: 0 };
+    return this.capsCache;
+  }
+
+  /** Direct transfer needs WebRTC and OPFS; the cap is free space − 10 % (1 GiB on iPhone/iPad). */
+  private async prepareCaps() {
+    const direct = typeof RTCPeerConnection !== 'undefined' && hasOpfs();
+    if (!direct) return;
+    let free = Number.MAX_SAFE_INTEGER;
+    try {
+      const e = await navigator.storage.estimate();
+      if (e.quota) free = Math.max(0, (e.quota - (e.usage ?? 0)) * 0.9);
+    } catch {}
+    this.capsCache = { direct, maxDirectBytes: Math.floor(isIOS() ? Math.min(free, IOS_DIRECT_CAP) : free) };
   }
 
   private async hello() {
@@ -411,11 +440,26 @@ export class Space {
 
   /** Decide how a file travels (§9.1). */
   protected async sendFile(file: File) {
-    const uploads = this.store.get().space?.uploads ?? 'off';
-    if (uploads === 'on' && file.size <= this.maxUpload) return this.uploadFile(file);
-    if (uploads === 'paused') this.toast(t.moments.uploadsPaused);
-    else if (uploads === 'off') this.toast(t.moments.uploadsOffNobody);
-    else this.toast(t.moments.tooBig(formatBytes(this.maxUpload)));
+    const s = this.store.get();
+    const uploads = s.space?.uploads ?? 'off';
+    const busy = !Array.isArray(s.peers);
+    const others = this.others();
+    const canUpload = uploads === 'on' && file.size <= this.maxUpload;
+    const direct = this.supportsDirect() && !busy;
+
+    // Wi-Fi or Private, exactly one other device here → direct, falling back to upload.
+    if (this.mode !== 'room' && direct && others.length === 1) return this.sendDirect(file, others[0], canUpload);
+    if (canUpload) return this.uploadFile(file);
+
+    // Upload impossible: direct to each device here (max 4; never on busy networks).
+    if (busy) return void this.toast(t.moments.busyBusyDirect);
+    if (!direct || !others.length) {
+      if (uploads === 'paused') this.toast(t.moments.uploadsPaused);
+      else if (uploads === 'off') this.toast(t.moments.uploadsOffNobody);
+      else this.toast(t.moments.tooBig(formatBytes(this.maxUpload)));
+      return;
+    }
+    for (const p of others.slice(0, MAX_DIRECT_TARGETS)) void this.sendDirect(file, p, false);
   }
 
   /** Fields and byte source for upload.init; Private Share encrypts (E2EE phase). */
@@ -468,7 +512,7 @@ export class Space {
 
   /** Files this tab still holds (for "Make available for later" and instant saves). */
   localFiles = new Map<string, File>();
-  private created = new Map<string, number>();
+  protected created = new Map<string, number>();
 
   /** Sort key for rows that only exist on this device (before the server knows them, or direct). */
   localCreatedAt(id: string): number {
@@ -480,9 +524,131 @@ export class Space {
     return at;
   }
 
-  /** Whether this browser can send and receive directly (direct-transfer phase). */
+  /** Whether this browser can send and receive directly. */
   supportsDirect(): boolean {
-    return false;
+    return this.capsCache.direct;
+  }
+
+  // ───────────────────────── direct transfer (§9.2) ─────────────────────────
+
+  private directP: Promise<Direct> | null = null;
+  received = new Map<string, File>();
+  private localThumbs = new Map<string, string | undefined>();
+
+  localThumb(id: string) {
+    return this.localThumbs.get(id);
+  }
+
+  loadDirect(): Promise<Direct> {
+    this.directP ??= import('./direct').then(
+      ({ Direct }) =>
+        new Direct({
+          me: () => this.store.get().peerId,
+          signal: (to, data) => this.socket.post({ t: 'signal', to, data }),
+          peerName: (id) => this.others().find((p) => p.peerId === id)?.name ?? '',
+          maxDirectBytes: () => this.capsCache.maxDirectBytes,
+          onIncoming: (meta, from) => {
+            this.localCreatedAt(meta.id);
+            this.localThumbs.set(meta.id, meta.thumb);
+            const peer = this.others().find((p) => p.peerId === from)?.name ?? '';
+            this.setTransfer(meta.id, { id: meta.id, kind: 'recv', name: meta.name, size: meta.size, mime: meta.mime, loaded: 0, speed: 0, state: 'active', peer });
+          },
+          onIncomingProgress: (id, n) => this.progress(id, n),
+          onReceived: (r, file) => {
+            this.received.set(r.id, file);
+            this.samples.delete(r.id);
+            this.setTransfer(r.id, { state: 'done', loaded: r.size });
+            bump();
+            this.store.set({ live: `${t.files.title} · ${t.item.from(r.from)}` });
+          },
+          onIncomingFailed: (id) => {
+            this.samples.delete(id);
+            this.setTransfer(id, null);
+          },
+        }),
+    );
+    return this.directP;
+  }
+
+  private async sendDirect(file: File, peer: Peer, fallback: boolean) {
+    const id = randomId();
+    const ac = new AbortController();
+    this.aborts.set(id, ac);
+    this.localCreatedAt(id);
+    this.setTransfer(id, { id, kind: 'send', name: file.name, size: file.size, mime: file.type, loaded: 0, speed: 0, state: 'active', peer: peer.name });
+    try {
+      const thumb = await makeThumb(file);
+      this.localThumbs.set(id, thumb);
+      const d = await this.loadDirect();
+      await d.send(peer, file, id, thumb, (n) => this.progress(id, n), ac.signal);
+      this.localFiles.set(id, file);
+      this.setTransfer(id, { state: 'done', loaded: file.size });
+    } catch (e) {
+      this.setTransfer(id, null);
+      if (ac.signal.aborted) {
+        this.toast(t.item.cancelled);
+      } else if (fallback) {
+        // Not connected within 8 s, stalled 15 s, or declined → upload instead (§9.1).
+        this.toast(t.moments.directFailed);
+        await this.uploadFile(file);
+      } else {
+        const reason = (e as { reason?: string })?.reason;
+        this.toast(reason === 'no_space' || reason === 'too_big' ? t.moments.declined : t.moments.generic);
+      }
+    } finally {
+      this.aborts.delete(id);
+      this.samples.delete(id);
+    }
+  }
+
+  saveReceived(id: string) {
+    const file = this.received.get(id);
+    if (!file) return;
+    saveBlob(file, file.name);
+    this.setTransfer(id, { saved: true });
+    void import('./direct').then((m) => m.forgetReceived(id));
+  }
+
+  unsavedCount(): number {
+    return Object.values(this.store.get().transfers).filter((x) => x.kind === 'recv' && x.state === 'done' && !x.saved).length;
+  }
+
+  private onBeforeUnload = (e: BeforeUnloadEvent) => {
+    const n = this.unsavedCount();
+    if (!n) return;
+    e.preventDefault();
+    e.returnValue = t.moments.unsaved(n);
+    return e.returnValue;
+  };
+
+  /** Unsaved received files survive a reload (§9.2). */
+  private async recover() {
+    if (!hasOpfs()) return;
+    const { recoverReceived } = await import('./direct');
+    const list = await recoverReceived();
+    if (!list.length) return;
+    for (const { r, file } of list) {
+      this.received.set(r.id, file);
+      this.created.set(r.id, r.at);
+      this.setTransfer(r.id, { id: r.id, kind: 'recv', name: r.name, size: r.size, mime: r.mime, loaded: r.size, speed: 0, state: 'done', peer: r.from, recovered: true });
+    }
+    this.toast(t.moments.recovered(list.length), {
+      label: t.item.save,
+      run: () => {
+        for (const { r } of list) this.saveReceived(r.id);
+      },
+    }, 10_000);
+  }
+
+  /** Extension point for more overflow actions (e.g. Report). */
+  extraFileActions(_row: { id: string; item?: Item }): { label: string; run: () => void }[] {
+    return [];
+  }
+
+  /** Upload a file this tab sent directly, so it's there later too (§9.1). */
+  async makeAvailable(id: string) {
+    const file = this.localFiles.get(id);
+    if (file) await this.uploadFile(file);
   }
 
   cancelUpload(id: string) {

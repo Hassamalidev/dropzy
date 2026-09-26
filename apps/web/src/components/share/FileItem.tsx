@@ -17,13 +17,13 @@ export function FileItem({ row }: { row: FileRow }) {
   const { item, transfer } = row;
   const name = item ? space.displayName(item) : (transfer?.name ?? 'file');
   const mime = item ? space.displayMime(item) : transfer?.mime;
-  const thumb = item ? space.displayThumb(item) : undefined;
+  const thumb = item ? space.displayThumb(item) : space.localThumb(row.id);
   const size = item?.size ?? transfer?.size ?? 0;
   const [base, ext] = splitName(name);
   const [risky, setRisky] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
 
-  const mine = item ? item.mine : true;
+  const mine = item ? item.mine : transfer?.kind !== 'recv';
   const from = mine ? t.item.you : (item?.from.name ?? transfer?.peer ?? '');
   const ready = item?.status === 'ready';
 
@@ -64,10 +64,16 @@ export function FileItem({ row }: { row: FileRow }) {
         </p>
         <StatusLine item={item} transfer={transfer} now={now} />
         <div className="mt-1 flex flex-wrap items-center gap-1">
-          {transfer?.kind === 'upload' && transfer.state === 'active' && (
+          {transfer && transfer.kind !== 'recv' && transfer.state === 'active' && (
             <button type="button" className="btn-ghost min-h-9 px-2.5 text-xs" onClick={() => space.cancelUpload(transfer.id)}>
               <X size={14} aria-hidden />
               {t.item.cancel}
+            </button>
+          )}
+          {!item && transfer?.kind === 'recv' && transfer.state === 'done' && (
+            <button type="button" className="btn-secondary min-h-9 px-3 text-xs" onClick={() => space.saveReceived(transfer.id)}>
+              <Download size={14} aria-hidden />
+              {transfer.saved ? t.item.saved : t.item.save}
             </button>
           )}
           {item && ready && (

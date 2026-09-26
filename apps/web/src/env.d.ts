@@ -4,6 +4,7 @@ interface ImportMetaEnv {
   readonly PUBLIC_API_URL?: string;
   readonly PUBLIC_SITE_URL?: string;
   readonly PUBLIC_MAX_UPLOAD_BYTES?: string;
+  readonly PUBLIC_TURN_ENABLED?: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;

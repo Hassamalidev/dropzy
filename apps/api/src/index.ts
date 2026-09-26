@@ -168,6 +168,21 @@ app.post('/v1/join', async (c) => {
   }
 });
 
+// ───────────────────────── TURN (optional, off by default) ─────────────────────────
+
+app.get('/v1/ice', async (c) => {
+  if (!flag(c.env.TURN_ENABLED) || !c.env.TURN_KEY_ID || !c.env.TURN_API_TOKEN) return fail(c, 'not_found', 404);
+  if (await limited(c, c.env.RL_CONNECT)) return fail(c, 'rate_limited', 429);
+  const res = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${c.env.TURN_KEY_ID}/credentials/generate-ice-servers`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${c.env.TURN_API_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ttl: 3600 }),
+  });
+  if (!res.ok) return fail(c, 'server_error', 500);
+  const data = (await res.json()) as { iceServers: unknown };
+  return ok(c, { iceServers: data.iceServers });
+});
+
 // ───────────────────────── single-file links (§9.4) ─────────────────────────
 
 /** ref = base64url(DO id) + "." + itemId */
