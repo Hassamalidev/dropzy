@@ -72,15 +72,11 @@ export const t = {
 
   // Connect card (§6.3.3)
   connect: {
-    waitingTitle: 'Waiting for your other device…',
-    waiting: `Waiting for your other device… Open ${siteHost} on it and it’ll appear here.`,
     wifiLine1: `Open ${siteHost} on your other device — it should appear here.`,
     wifiLine2: (code: string) => `Not showing up? Scan this QR, or tap Join and enter ${code}.`,
     wifiLine2NoCode: 'Not showing up? Scan this QR with your other device.',
     differentNetworks: 'On different networks? Start a Private Share',
-    button: 'Connect a device',
     privateTitle: 'Open this link on the other device',
-    privateHint: 'Scan the QR or send the link. Only people with it can get in.',
     roomTitle: 'Invite people to this room',
     roomHint: 'Scan the QR, open the link, or enter the code on the Join page.',
     copyLink: 'Copy link',
@@ -89,7 +85,6 @@ export const t = {
     leave: 'Leave',
     pairCode: 'Pair code',
     passExpires: 'This code works for 10 minutes.',
-    close: 'Close',
     loading: 'Making a code…',
   },
 

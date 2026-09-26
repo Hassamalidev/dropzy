@@ -70,13 +70,17 @@ export function StatusCard() {
     );
   }
 
+  // Room: one card — QR, code, time left and the room's actions (§6.3.3, §6.3.4).
   const code = info.code ?? '';
   return (
-    <section className="card flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-col gap-2">
+    <section className="card flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+      <button type="button" className="cursor-zoom-in self-center" onClick={() => setBigQr(true)} aria-label={t.status.enlargeQr}>
+        <Qr text={url} size={96} label={t.connect.roomTitle} />
+      </button>
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-center sm:text-left">
         <p className="text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">{t.status.roomCode}</p>
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-3xl font-semibold tracking-[0.3em] text-slate-900 sm:text-4xl dark:text-white">
+        <div className="flex items-center justify-center gap-2 sm:justify-start">
+          <span className="font-mono text-3xl font-semibold tracking-[0.3em] text-slate-900 dark:text-white">
             {code}
           </span>
           <button
@@ -88,9 +92,9 @@ export function StatusCard() {
             <Copy size={18} aria-hidden />
           </button>
         </div>
-        {countdown}
+        <div className="flex justify-center sm:justify-start">{countdown}</div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm dark:border-slate-700">
           <input
             type="checkbox"
@@ -113,6 +117,14 @@ export function StatusCard() {
           {t.connect.copyJoinLink}
         </button>
       </div>
+      {bigQr && (
+        <Dialog open onClose={() => setBigQr(false)} title={t.connect.roomTitle}>
+          <div className="flex flex-col items-center gap-3 text-center">
+            <Qr text={url} size={280} label={t.connect.roomTitle} />
+            <p className="text-sm text-slate-600 dark:text-slate-400">{t.connect.roomHint}</p>
+          </div>
+        </Dialog>
+      )}
     </section>
   );
 }

@@ -7,7 +7,6 @@ import { type Mode, Space } from '../../lib/space';
 import { t } from '../../strings/en';
 import { ExpiryBanner, OfflinePill } from './Banners';
 import { BusyBanner } from './BusyBanner';
-import { ConnectCard } from './ConnectCard';
 import { SpaceCtx, useApp } from './context';
 import { FilesPanel } from './FilesPanel';
 import { Hero } from './Hero';
@@ -76,7 +75,6 @@ function Screen({ mode }: { mode: Mode }) {
           <ExpiryBanner />
           <BusyBanner />
           <StatusCard />
-          <ConnectCard />
           <PassNotice />
           {(mode === 'ses' || hasItems || query) && (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
