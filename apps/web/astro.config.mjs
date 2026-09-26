@@ -40,6 +40,19 @@ export default defineConfig({
   ],
   vite: {
     plugins: [tailwindcss()],
-    build: { assetsInlineLimit: 0 },
+    build: {
+      assetsInlineLimit: 0,
+      rollupOptions: {
+        output: {
+          // Fewer requests per visit (§4.4): React and the shared app code load as one file;
+          // QR, ZIP, direct transfer and the OPFS worker stay lazy.
+          manualChunks(id) {
+            if (/node_modules[\/](react|react-dom|scheduler)[\/]/.test(id)) return 'app';
+            if (/[\/]src[\/](lib|strings|components[\/]share)[\/]/.test(id) && !/[\/]lib[\/](direct|sink[\/]opfs)/.test(id)) return 'app';
+            if (/packages[\/]shared[\/]/.test(id)) return 'app';
+          },
+        },
+      },
+    },
   },
 });
