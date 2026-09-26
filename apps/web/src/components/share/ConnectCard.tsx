@@ -1,39 +1,28 @@
-import { CONNECT_CARD_DELAY } from '@dropzy/shared';
 import { Copy, Link2, Smartphone } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { copyText } from '../../lib/clipboard';
 import { t } from '../../strings/en';
 import { useApp, useSpace } from './context';
 import { Dialog, Qr } from './Dialogs';
-import { WifiConnect } from './WifiConnect';
 
 /**
- * Shown while you're alone (Wi-Fi: after 8 s; Private and Room: right away).
- * Once someone else is here it collapses to a "Connect a device" button (§6.3.3).
+ * Private and Room: the link/QR card while you're alone; once someone else is here it collapses
+ * to a "Connect a device" button. Wi-Fi Share has no card — devices on the network appear by themselves.
  */
 export function ConnectCard() {
   const mode = useApp((s) => s.mode);
   const alone = useApp((s) => (Array.isArray(s.peers) ? s.peers.filter((p) => p.peerId !== s.peerId).length === 0 : s.peers.count <= 1));
-  const busy = useApp((s) => !Array.isArray(s.peers));
-  const [waited, setWaited] = useState(mode !== 'wifi');
   const [dialog, setDialog] = useState(false);
 
-  useEffect(() => {
-    if (mode !== 'wifi' || !alone) return;
-    const id = window.setTimeout(() => setWaited(true), CONNECT_CARD_DELAY);
-    return () => clearTimeout(id);
-  }, [mode, alone]);
+  if (mode === 'wifi') return null;
 
-  if (busy && mode === 'wifi') return null;
-
-  if (alone && waited) {
+  if (alone) {
     return (
       <section className="card p-5 sm:p-6" aria-live="polite">
-        <ConnectContent />
+        <LinkConnect />
       </section>
     );
   }
-  if (alone) return null;
 
   return (
     <div className="flex justify-end">
@@ -43,17 +32,11 @@ export function ConnectCard() {
       </button>
       {dialog && (
         <Dialog open onClose={() => setDialog(false)} title={t.connect.button} wide>
-          <ConnectContent inDialog />
+          <LinkConnect />
         </Dialog>
       )}
     </div>
   );
-}
-
-function ConnectContent({ inDialog = false }: { inDialog?: boolean }) {
-  const mode = useApp((s) => s.mode);
-  if (mode === 'wifi') return <WifiConnect inDialog={inDialog} />;
-  return <LinkConnect />;
 }
 
 function LinkConnect() {

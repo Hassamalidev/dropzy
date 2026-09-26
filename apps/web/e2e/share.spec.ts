@@ -96,21 +96,10 @@ test.describe('Wi-Fi Share', () => {
     const bytes = Buffer.alloc(3 * 1024 * 1024, 42);
     await a.setInputFiles('input[type=file]', { name: 'direct.bin', mimeType: 'application/octet-stream', buffer: bytes });
     await expect(b.getByText(/Received from .* never uploaded/)).toBeVisible({ timeout: 30_000 });
-    await expect(a.getByText(/Sent directly to/)).toBeVisible();
+    // Other tabs on the same local network may receive it too.
+    await expect(a.getByText(/Sent directly to/).first()).toBeVisible();
     const [dl] = await Promise.all([b.waitForEvent('download'), b.getByRole('button', { name: 'Save', exact: true }).click()]);
     expect(dl.suggestedFilename()).toBe('direct.bin');
-  });
-
-  test('pairs a device with the 6-digit code', async ({ browser }) => {
-    const a = await page(browser);
-    await a.goto('/');
-    await expect(a.getByText('Waiting for your other device…').first()).toBeVisible({ timeout: 15_000 });
-    const code = (await a.locator('p.font-mono').first().textContent())?.trim() ?? '';
-    const b = await page(browser);
-    await b.goto('/join');
-    await b.locator('#digits input').first().fill(code);
-    await expect(b.getByText('Connected by code')).toBeVisible();
-    await expect(b).toHaveURL(/localhost:4321\/$/); // the pass is removed from the address bar
   });
 });
 
