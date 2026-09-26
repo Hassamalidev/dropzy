@@ -20,13 +20,13 @@ export function Toasts() {
         {toasts.map((x) => (
           <div
             key={x.id}
-            className="pointer-events-auto flex max-w-sm items-center gap-3 rounded-xl bg-slate-900 py-2 pr-2 pl-4 text-sm text-white shadow-lg dark:bg-slate-100 dark:text-slate-900"
+            className="pointer-events-auto flex max-w-sm items-center gap-3 rounded-xl bg-slate-900 py-2 pr-2 pl-4 text-sm text-white dark:bg-slate-100 dark:text-slate-900"
           >
             <span className="py-1">{x.text}</span>
             {x.action && (
               <button
                 type="button"
-                className="min-h-9 cursor-pointer rounded-lg px-3 font-semibold text-beige underline underline-offset-2 hover:bg-white/10 dark:text-olive dark:hover:bg-slate-900/10"
+                className="min-h-9 cursor-pointer rounded-lg px-3 font-semibold text-caramel underline underline-offset-2 hover:bg-white/10 dark:text-espresso dark:hover:bg-slate-900/10"
                 onClick={() => {
                   x.action?.run();
                   space.dismiss(x.id);

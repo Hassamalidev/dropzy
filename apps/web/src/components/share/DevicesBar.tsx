@@ -78,7 +78,7 @@ export function DevicesBar() {
 
 function Avatar({ name }: { name: string }) {
   return (
-    <span className="inline-flex size-7 items-center justify-center rounded-full bg-white text-base shadow-sm dark:bg-slate-800" aria-hidden>
+    <span className="inline-flex size-7 items-center justify-center rounded-full bg-white text-base dark:bg-slate-800" aria-hidden>
       {emojiFor(name)}
     </span>
   );

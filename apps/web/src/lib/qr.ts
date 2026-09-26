@@ -10,7 +10,7 @@ export async function qrDataUrl(text: string): Promise<string> {
     type: 'svg',
     errorCorrectionLevel: 'M',
     margin: 4,
-    color: { dark: '#26251a', light: '#ffffff' },
+    color: { dark: '#2a1a04', light: '#ffffff' },
   });
   const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   cache.set(text, url);

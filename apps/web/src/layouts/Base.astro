@@ -39,7 +39,7 @@ const ogImage = `${SITE_URL}/og.png`;
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <meta name="referrer" content="no-referrer" />
-    <meta name="theme-color" content="#fdfbd4" />
+    <meta name="theme-color" content="#efebe6" />
     <link rel="icon" href={FAVICON} type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icon.svg" />
@@ -68,7 +68,7 @@ const ogImage = `${SITE_URL}/og.png`;
           const dark = s ? s === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
           if (dark) {
             document.documentElement.classList.add('dark');
-            document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#1c1b12');
+            document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#1e1407');
           }
         } catch {}
       })();
@@ -112,7 +112,7 @@ const ogImage = `${SITE_URL}/og.png`;
         if (!host) return;
         const el = document.createElement('div');
         el.className =
-          'pointer-events-auto rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-lg dark:bg-slate-100 dark:text-slate-900';
+          'pointer-events-auto rounded-xl bg-slate-900 px-4 py-3 text-sm text-white dark:bg-slate-100 dark:text-slate-900';
         el.textContent = msg;
         host.replaceChildren(el);
         setTimeout(() => el.remove(), 4000);

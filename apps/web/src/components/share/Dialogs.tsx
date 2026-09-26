@@ -45,7 +45,7 @@ export function Dialog({
       onClick={(e) => {
         if (e.target === ref.current) onClose();
       }}
-      className={`m-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-800 shadow-xl dark:border-night-line dark:bg-night-card dark:text-slate-100`}
+      className={`m-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-800 dark:border-night-line dark:bg-night-card dark:text-slate-100`}
       style={{ width: `min(92vw, ${wide ? 560 : 420}px)` }}
     >
       {open && (

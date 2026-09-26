@@ -184,8 +184,8 @@ function DropZone({ hint, onFiles }: { hint: string; onFiles: (files: File[]) =>
         />
       </div>
       {over && (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-accent/15 backdrop-blur-[2px]">
-          <div className="rounded-2xl border-2 border-dashed border-accent bg-white px-10 py-8 text-lg font-semibold text-accent-strong shadow-xl dark:bg-night-card dark:text-accent">
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-accent/15">
+          <div className="rounded-2xl border-2 border-dashed border-accent bg-white px-10 py-8 text-lg font-semibold text-accent-strong dark:bg-night-card dark:text-accent">
             {t.files.dropOverlay}
           </div>
         </div>

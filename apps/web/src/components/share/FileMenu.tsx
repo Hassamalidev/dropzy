@@ -45,7 +45,7 @@ export function FileMenu({ row }: { row: FileRow }) {
         <MoreHorizontal size={16} aria-hidden />
       </button>
       {open && (
-        <div role="menu" className="absolute left-0 z-20 mt-1 min-w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+        <div role="menu" className="absolute left-0 z-20 mt-1 min-w-48 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 dark:border-slate-700 dark:bg-slate-800">
           {actions.map((a) => (
             <button
               key={a.label}

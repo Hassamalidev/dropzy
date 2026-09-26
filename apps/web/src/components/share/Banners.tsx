@@ -10,7 +10,7 @@ export function OfflinePill() {
   if (conn !== 'offline' && !(conn === 'connecting' && everOpen)) return null;
   return (
     <div role="status" className="fixed top-3 left-1/2 z-40 -translate-x-1/2">
-      <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-900 shadow dark:bg-amber-900/60 dark:text-amber-100">
+      <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-900 dark:bg-amber-900/60 dark:text-amber-100">
         <WifiOff size={15} aria-hidden />
         {t.moments.offline}
       </span>
