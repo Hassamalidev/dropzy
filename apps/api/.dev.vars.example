@@ -1,0 +1,5 @@
+IP_HASH_SECRET=dev-ip-hash-secret-change-me
+PASS_SECRET=dev-pass-secret-change-me
+ADMIN_TOKEN=dev-admin-token
+# R2_ACCESS_KEY_ID=
+# R2_SECRET_ACCESS_KEY=

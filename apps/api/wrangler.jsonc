@@ -1,0 +1,39 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dropzy-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-20",
+  "observability": { "enabled": true, "head_sampling_rate": 0.1 },
+  "durable_objects": {
+    "bindings": [
+      { "name": "SPACE", "class_name": "SpaceDO" },
+      { "name": "DIRECTORY", "class_name": "DirectoryDO" },
+      { "name": "GUARD", "class_name": "GuardDO" },
+      { "name": "ADMIN", "class_name": "AdminDO" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["SpaceDO", "DirectoryDO", "GuardDO", "AdminDO"] }
+  ],
+  "r2_buckets": [{ "binding": "FILES", "bucket_name": "dropzy-files" }],
+  "ratelimits": [
+    { "name": "RL_CONNECT", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
+    { "name": "RL_CREATE", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+    { "name": "RL_JOIN", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } },
+    { "name": "RL_PUBLIC", "namespace_id": "1004", "simple": { "limit": 60, "period": 60 } }
+  ],
+  "vars": {
+    "SITE_ORIGIN": "https://dropzy.app",
+    "EXTRA_ORIGINS": "http://localhost:4321",
+    "STORAGE_ENABLED": "true",
+    "TURN_ENABLED": "false",
+    "R2_ACCOUNT_ID": "<your account id>",
+    "R2_BUCKET": "dropzy-files",
+    "MAX_CLOUD_FILE_BYTES": "2147483648",
+    "MAX_STORED_BYTES": "8589934592",
+    "PER_IP_DAILY_UPLOAD_BYTES": "3221225472",
+    "CLASS_A_DAILY_BUDGET": "30000",
+    "CLASS_B_DAILY_BUDGET": "300000",
+    "BUSY_NETWORK_DEVICES": "7"
+  }
+}
