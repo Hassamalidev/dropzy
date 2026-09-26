@@ -9,6 +9,7 @@ import { ExpiryBanner, OfflinePill } from './Banners';
 import { ConnectCard } from './ConnectCard';
 import { SpaceCtx, useApp } from './context';
 import { DevicesBar } from './DevicesBar';
+import { FilesPanel } from './FilesPanel';
 import { Hero } from './Hero';
 import { InfoRow } from './InfoRow';
 import { StatusCard } from './StatusCard';
@@ -70,6 +71,7 @@ function Screen({ mode }: { mode: Mode }) {
           <StatusCard />
           <ConnectCard />
           <div className="grid items-start gap-4 md:grid-cols-2">
+            <FilesPanel />
             <TextPanel />
           </div>
           <InfoRow mode={mode} />

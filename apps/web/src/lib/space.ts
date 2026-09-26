@@ -1,5 +1,7 @@
 import {
   COUNTDOWN_TICK,
+  type DownloadUrlAck,
+  GiB,
   DEVICE_LABEL,
   type Item,
   type Peer,
@@ -9,6 +11,8 @@ import {
   TEXT_MAX,
   type TextAddAck,
   UNDO_MS,
+  type UploadInitAck,
+  formatBytes,
   randomId,
 } from '@dropzy/shared';
 import { t } from '../strings/en';
@@ -17,7 +21,11 @@ import { copyText } from './clipboard';
 import { decryptText, encryptText } from './crypto/keys';
 import { deleteToken, deviceId, deviceName, deviceType, saveDeleteToken, setDeviceName } from './device';
 import { nextUtcMidnight } from './format';
-import { RequestError, SpaceSocket, type Terminal } from './socket';
+import { clickLink, openSink, pipeTo, saveBlob, type startPicker } from './sink';
+import { type Outgoing, RequestError, SpaceSocket, type Terminal } from './socket';
+import { makeThumb } from './thumbs';
+import { type Source, UploadCancelled, runUpload } from './upload/uploader';
+import { zipStream } from './zip';
 import { type Store, createStore } from './store';
 
 export type Mode = 'wifi' | 'ses' | 'room';
@@ -33,6 +41,18 @@ export type Toast = {
 /** Decrypted or derived fields for an item (Private Share). */
 export type Plain = { body?: string; name?: string; mime?: string; thumb?: string; failed?: boolean };
 
+export type Transfer = {
+  id: string;
+  kind: 'upload' | 'send' | 'recv';
+  name: string;
+  size: number;
+  mime: string;
+  loaded: number;
+  speed: number; // bytes/s
+  state: 'active' | 'done' | 'failed';
+  peer?: string; // the other device's name
+};
+
 export type AppState = {
   mode: Mode;
   conn: Conn;
@@ -47,6 +67,8 @@ export type AppState = {
   toasts: Toast[];
   now: number;
   live: string; // aria-live announcement
+  transfers: Record<string, Transfer>;
+  burn: boolean;
 };
 
 export class Space {
@@ -56,6 +78,9 @@ export class Space {
   private toastN = 0;
   private tickTimer = 0;
   private pendingDeletes = new Map<string, number>();
+  protected aborts = new Map<string, AbortController>();
+  private samples = new Map<string, { t: number; loaded: number; speed: number }>();
+  readonly maxUpload = Number(import.meta.env.PUBLIC_MAX_UPLOAD_BYTES) || 2 * GiB;
   /** Hooks for later features (direct transfer, uploads). */
   protected listeners: ((m: S2C) => void)[] = [];
 
@@ -80,6 +105,8 @@ export class Space {
       toasts: [],
       now: Date.now(),
       live: '',
+      transfers: {},
+      burn: false,
     });
     this.socket = new SpaceSocket(() => this.query(), {
       onOpen: () => this.hello(),
@@ -102,11 +129,13 @@ export class Space {
   start() {
     if (this.store.get().conn === 'missing_key') return;
     initBadge();
+    addEventListener('offline', this.onOffline);
     this.socket.start();
     this.tick();
   }
 
   stop() {
+    removeEventListener('offline', this.onOffline);
     this.socket.stop();
     clearTimeout(this.tickTimer);
   }
@@ -339,8 +368,209 @@ export class Space {
     }
   }
 
-  /** Extension point: cancel a running upload before deleting it. */
-  protected async beforeDelete(_id: string): Promise<void> {}
+  /** Deleting your own running upload cancels it first. */
+  protected async beforeDelete(id: string): Promise<void> {
+    this.aborts.get(id)?.abort();
+  }
+
+  // ───────────────────────── files (§9) ─────────────────────────
+
+  private onOffline = () => {
+    const s = this.store.get();
+    if (Object.values(s.transfers).some((x) => x.kind === 'upload' && x.state === 'active')) this.toast(t.moments.offlineUpload);
+  };
+
+  setTransfer(id: string, patch: Partial<Transfer> | null) {
+    this.store.set((s) => {
+      const transfers = { ...s.transfers };
+      if (patch === null) delete transfers[id];
+      else transfers[id] = { ...(transfers[id] as Transfer), ...patch };
+      return { transfers };
+    });
+  }
+
+  /** Rolling transfer speed, updated at most ~4×/s. */
+  protected progress(id: string, loaded: number) {
+    const now = performance.now();
+    const prev = this.samples.get(id);
+    if (!prev) {
+      this.samples.set(id, { t: now, loaded, speed: 0 });
+      this.setTransfer(id, { loaded });
+      return;
+    }
+    if (now - prev.t < 250 && loaded < (this.store.get().transfers[id]?.size ?? Number.POSITIVE_INFINITY)) return;
+    const inst = ((loaded - prev.loaded) / (now - prev.t)) * 1000;
+    const speed = prev.speed ? prev.speed * 0.7 + inst * 0.3 : inst;
+    this.samples.set(id, { t: now, loaded, speed });
+    this.setTransfer(id, { loaded, speed: Math.max(0, speed) });
+  }
+
+  sendFiles(files: File[]) {
+    for (const f of files) void this.sendFile(f);
+  }
+
+  /** Decide how a file travels (§9.1). */
+  protected async sendFile(file: File) {
+    const uploads = this.store.get().space?.uploads ?? 'off';
+    if (uploads === 'on' && file.size <= this.maxUpload) return this.uploadFile(file);
+    if (uploads === 'paused') this.toast(t.moments.uploadsPaused);
+    else if (uploads === 'off') this.toast(t.moments.uploadsOffNobody);
+    else this.toast(t.moments.tooBig(formatBytes(this.maxUpload)));
+  }
+
+  /** Fields and byte source for upload.init; Private Share encrypts (E2EE phase). */
+  protected async prepareUpload(_cid: string, file: File): Promise<{ fields: Partial<Extract<Outgoing, { t: 'upload.init' }>>; source: Source }> {
+    const thumb = await makeThumb(file);
+    return {
+      fields: { name: file.name, mime: file.type || 'application/octet-stream', thumb },
+      source: { size: file.size, slice: async (a, b) => file.slice(a, b) },
+    };
+  }
+
+  async uploadFile(file: File, cid = randomId()) {
+    const ac = new AbortController();
+    this.aborts.set(cid, ac);
+    this.setTransfer(cid, { id: cid, kind: 'upload', name: file.name, size: file.size, mime: file.type, loaded: 0, speed: 0, state: 'active' });
+    let started = false;
+    try {
+      const { fields, source } = await this.prepareUpload(cid, file);
+      this.setTransfer(cid, { size: source.size });
+      const init = await this.socket.request<UploadInitAck>({
+        t: 'upload.init',
+        cid,
+        size: file.size,
+        e2ee: this.e2ee,
+        burn: this.store.get().burn,
+        ...fields,
+      });
+      started = true;
+      if (init.deleteToken) saveDeleteToken(init.id, init.deleteToken, Date.now() + 2 * 3600_000);
+      await runUpload({
+        socket: this.socket,
+        init,
+        source,
+        signal: ac.signal,
+        phone: /Android|iPhone|iPad|Mobile/.test(navigator.userAgent),
+        onProgress: (loaded) => this.progress(cid, loaded),
+      });
+      this.localFiles.set(cid, file);
+    } catch (e) {
+      if (started) void this.socket.request({ t: 'upload.abort', id: cid }).catch(() => {});
+      if (e instanceof UploadCancelled) this.toast(t.item.cancelled);
+      else if (e instanceof RequestError && e.code !== 'timeout' && e.code !== 'offline') this.toast(this.errorText(e));
+      else this.toast(t.item.uploadFailed);
+    } finally {
+      this.aborts.delete(cid);
+      this.samples.delete(cid);
+      this.setTransfer(cid, null);
+    }
+  }
+
+  /** Files this tab still holds (for "Make available for later" and instant saves). */
+  localFiles = new Map<string, File>();
+  private created = new Map<string, number>();
+
+  /** Sort key for rows that only exist on this device (before the server knows them, or direct). */
+  localCreatedAt(id: string): number {
+    let at = this.created.get(id);
+    if (!at) {
+      at = Date.now();
+      this.created.set(id, at);
+    }
+    return at;
+  }
+
+  /** Whether this browser can send and receive directly (direct-transfer phase). */
+  supportsDirect(): boolean {
+    return false;
+  }
+
+  cancelUpload(id: string) {
+    this.aborts.get(id)?.abort();
+  }
+
+  async downloadUrl(item: Item): Promise<string> {
+    const r = await this.socket.request<DownloadUrlAck>({ t: 'download.url', id: item.id }, { idempotent: false });
+    return r.url;
+  }
+
+  /** `picker` must come from startPicker() inside the click (only needed for encrypted files). */
+  async download(item: Item, picker: ReturnType<typeof startPicker> = null) {
+    try {
+      if (item.e2ee) return await this.downloadEncrypted(item, picker);
+      clickLink(await this.downloadUrl(item));
+    } catch (e) {
+      if ((e as Error)?.name === 'AbortError') return;
+      this.toast(e instanceof RequestError && e.code === 'not_found' ? t.item.gone : this.errorText(e));
+    }
+  }
+
+  /** Extension point: decrypting download (E2EE phase). */
+  protected async downloadEncrypted(_item: Item, _picker: ReturnType<typeof startPicker>): Promise<void> {
+    throw new RequestError('bad_request');
+  }
+
+  async fileLink(item: Item): Promise<string> {
+    const ref = this.store.get().space?.ref;
+    return `${location.origin}/f/${ref}.${item.id}${await this.fileLinkKey(item)}`;
+  }
+
+  /** Extension point: Private Share single-file links carry their own key (E2EE phase). */
+  protected async fileLinkKey(_item: Item): Promise<string> {
+    return '';
+  }
+
+  async copyFileLink(item: Item) {
+    this.toast((await copyText(await this.fileLink(item))) ? t.toast.linkCopied : t.toast.copyFailed);
+  }
+
+  /** Items that can go into "Download all": uploaded, ready, not one-download (§9.8). */
+  zippable(items: Item[]): Item[] {
+    return items.filter((i) => i.type === 'file' && i.status === 'ready' && !i.burn);
+  }
+
+  async downloadAll(items: Item[], picker: ReturnType<typeof startPicker>) {
+    const list = this.zippable(items);
+    const skipped = items.filter((i) => i.type === 'file').length - list.length;
+    if (skipped > 0) this.toast(t.files.downloadAllSkipped(skipped));
+    if (!list.length) return;
+    const tid = randomId();
+    this.toast(t.files.zipping);
+    try {
+      const stream = await zipStream(
+        list.map((i) => ({
+          name: this.displayName(i),
+          size: i.size,
+          lastModified: new Date(i.createdAt),
+          input: () => this.openItemStream(i),
+        })),
+      );
+      const sink = await openSink(t.files.zipName, picker, tid, 'application/zip');
+      const file = await pipeTo(stream, sink);
+      if (file) saveBlob(file, t.files.zipName);
+    } catch (e) {
+      if ((e as Error)?.name !== 'AbortError') this.toast(t.item.failed);
+    }
+  }
+
+  /** A readable body for an uploaded item (decrypted in Private Share). */
+  protected async openItemStream(item: Item): Promise<Response | ReadableStream<Uint8Array>> {
+    const res = await fetch(await this.downloadUrl(item), { credentials: 'omit', referrerPolicy: 'no-referrer' });
+    if (!res.ok) throw new Error('download');
+    return res;
+  }
+
+  displayName(item: Item): string {
+    return (item.e2ee ? this.store.get().plain[item.id]?.name : item.name) ?? 'file';
+  }
+
+  displayMime(item: Item): string | undefined {
+    return item.e2ee ? this.store.get().plain[item.id]?.mime : item.mime;
+  }
+
+  displayThumb(item: Item): string | undefined {
+    return item.e2ee ? this.store.get().plain[item.id]?.thumb : item.thumb;
+  }
 
   // ───────────────────────── space actions ─────────────────────────
 
