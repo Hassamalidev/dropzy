@@ -47,18 +47,12 @@ export const t = {
   hero: {
     wifi: {
       title: 'Open it on both devices. That’s it.',
-      subtitle: 'Everything shared on this Wi-Fi shows up here — and goes straight across when it can.',
-      chips: ['Finds your devices by itself', 'Sends directly when it can', 'Nothing to install'],
     },
     ses: {
       title: 'A private line between two devices.',
-      subtitle: 'Only someone with this link can get in, and everything is encrypted end to end.',
-      chips: ['End-to-end encrypted', 'Link or QR only', 'Share one file on its own'],
     },
     room: {
       title: 'A room for your group.',
-      subtitle: 'Share the 6-digit code; everyone can add, grab and remove files.',
-      chips: ['Join with a code', 'Lasts up to 48 hours', 'Lock it when everyone’s in'],
     },
   },
 
