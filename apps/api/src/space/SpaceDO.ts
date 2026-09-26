@@ -3,6 +3,7 @@ import {
   CLOSE,
   type DeviceType,
   type ErrorCode,
+  type FileKeyRes,
   type FileMeta,
   HOUR,
   type Item,
@@ -440,6 +441,9 @@ export class SpaceDO extends DurableObject<Env> {
         return this.onUploadAbort(att, msg.id);
       case 'download.url':
         return this.downloadUrl(att, msg.id);
+      case 'key.reply':
+        this.keyWaits.get(msg.req)?.({ pub: msg.pub, box: msg.box });
+        return NO_ACK;
       default:
         return this.handleWifi(ws, att, msg);
     }
@@ -534,16 +538,14 @@ export class SpaceDO extends DurableObject<Env> {
     }
 
     const key = `f/${msg.cid}`;
-    // A code anyone can type on the Join page to get this file. Private Share files skip it: their
-    // key lives only in the link, so a short code couldn't open them.
-    let code = base.code;
-    if (!e2ee) {
-      try {
-        code = await this.directory().allocateFile(`${this.ref()}.${msg.cid}`, base.expiresAt as number);
-      } catch (err) {
-        await this.guard().release(stored, false);
-        throw err;
-      }
+    // A code anyone can type (Join page, Private page) to get this file. For Private Share files the
+    // code only finds the file; its key still comes from a device in the share (relayKey).
+    let code: string;
+    try {
+      code = await this.directory().allocateFile(`${this.ref()}.${msg.cid}`, base.expiresAt as number);
+    } catch (err) {
+      await this.guard().release(stored, false);
+      throw err;
     }
     const name = e2ee ? null : cleanName(msg.name as string);
     const mime = e2ee ? null : stripUnsafe(msg.mime || 'application/octet-stream').slice(0, 255);
@@ -692,6 +694,32 @@ export class SpaceDO extends DurableObject<Env> {
       expiresAt: this.effectiveExpiry(r),
       burn: !!r.burn,
     };
+  }
+
+  private keyWaits = new Map<string, (r: FileKeyRes) => void>();
+
+  /**
+   * A device that typed a Private Share file's code asks for its key. Any device still open in
+   * this share answers with the key sealed to the asker's ECDH key, so it never passes here in the
+   * clear. Nobody open → sender_offline.
+   */
+  async relayKey(itemId: string, pub: string): Promise<FileKeyRes | { error: ErrorCode }> {
+    const row = this.fileRow(itemId);
+    if (!row?.e2ee) return { error: 'not_found' };
+    const open = this.sockets();
+    if (!open.length) return { error: 'sender_offline' };
+    const req = randomToken(9);
+    const reply = new Promise<FileKeyRes | null>((resolve) => {
+      const timer = setTimeout(() => resolve(null), KEY_WAIT_MS);
+      this.keyWaits.set(req, (r) => {
+        clearTimeout(timer);
+        resolve(r);
+      });
+    });
+    for (const { ws } of open) this.send(ws, { t: 'key.request', req, id: itemId, pub });
+    const r = await reply;
+    this.keyWaits.delete(req);
+    return r ?? { error: 'sender_offline' };
   }
 
   async fileDownload(itemId: string, origin: string): Promise<{ url: string } | { error: ErrorCode }> {
@@ -984,7 +1012,7 @@ export class SpaceDO extends DurableObject<Env> {
     if (!rows.length) return;
     await this.dropStorage(rows);
     for (const r of rows) {
-      if (r.type !== 'file' || !r.code || r.e2ee) continue;
+      if (r.type !== 'file' || !r.code) continue;
       await this.directory()
         .releaseFile(r.code, `${this.ref()}.${r.id}`)
         .catch(() => {}); // the code also expires by itself
@@ -1160,6 +1188,9 @@ export class SpaceDO extends DurableObject<Env> {
 }
 
 export const NO_ACK = Symbol('no-ack');
+
+/** How long a key request waits for a device in the share to answer. */
+const KEY_WAIT_MS = 15_000;
 
 function validThumb(thumb: string, e2ee: boolean): boolean {
   if (e2ee) return /^[A-Za-z0-9+/]+=*$/.test(thumb) && thumb.length <= 48_000;

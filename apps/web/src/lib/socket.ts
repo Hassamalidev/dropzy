@@ -198,8 +198,8 @@ export class SpaceSocket {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
   }
 
-  /** Fire-and-forget message without rid (progress, signal). Dropped when offline. */
-  post(msg: Extract<C2S, { t: 'upload.progress' | 'signal' }>) {
+  /** Fire-and-forget message without rid (progress, signal, key replies). Dropped when offline. */
+  post(msg: Extract<C2S, { t: 'upload.progress' | 'signal' | 'key.reply' }>) {
     if (this.ready && this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
   }
 

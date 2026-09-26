@@ -1,4 +1,4 @@
-import type { ApiResult, CreateRoomRes, CreateSessionRes, FileMeta, JoinRes } from '@dropzy/shared';
+import type { ApiResult, CreateRoomRes, CreateSessionRes, FileKeyRes, FileMeta, JoinRes } from '@dropzy/shared';
 import { API_URL } from './site';
 
 // The few HTTP calls; everything else goes over the socket (§13).
@@ -38,6 +38,7 @@ export const api = {
   join: (code: string) => call<JoinRes>('POST', '/v1/join', { code }),
   fileMeta: (ref: string) => call<FileMeta>('GET', `/v1/files/${ref}`),
   fileDownload: (ref: string) => call<{ url: string }>('POST', `/v1/files/${ref}/download`, {}),
+  fileKey: (ref: string, pub: string) => call<FileKeyRes>('POST', `/v1/files/${ref}/key`, { pub }),
   report: (ref: string, reason: string, note?: string) => call<{ id: string }>('POST', '/v1/report', { ref, reason, note }),
   feedback: (type: 'feature' | 'contact', message: string, email?: string, website = '') =>
     call<{ id: string }>('POST', '/v1/feedback', { type, message, email, website }),

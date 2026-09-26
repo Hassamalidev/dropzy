@@ -26,7 +26,7 @@ import { t } from '../strings/en';
 import { bump, initBadge } from './badge';
 import { copyText } from './clipboard';
 import { decryptStream, encryptedSource, fileKeys, openMeta, openThumb, sealMeta, sealThumb } from './crypto/files';
-import { decryptText, encryptText, itemRoot } from './crypto/keys';
+import { decryptText, encryptText, itemRoot, sealRoot } from './crypto/keys';
 import { deleteToken, deviceId, deviceName, deviceType, isIOS, saveDeleteToken, session, setSession } from './device';
 import { duration, nextUtcMidnight } from './format';
 import type { Direct } from './direct';
@@ -250,6 +250,9 @@ export class Space {
         this.store.set({ conn: 'ended' });
         this.socket.stop();
         break;
+      case 'key.request':
+        void this.answerKey(m.req, m.id, m.pub);
+        break;
     }
     for (const fn of this.listeners) fn(m);
   }
@@ -354,6 +357,19 @@ export class Space {
     const { meta } = await this.itemKeys(item.id);
     if (item.encMeta) Object.assign(plain, await openMeta(meta, item.encMeta));
     if (item.thumb) plain.thumb = await openThumb(meta, item.thumb).catch(() => undefined);
+  }
+
+  /** Someone typed one of this share's file codes: seal that file's key to their device. */
+  private async answerKey(req: string, itemId: string, askerPub: string) {
+    const item = this.store.get().items.find((i) => i.id === itemId && i.type === 'file' && i.e2ee);
+    if (!item || !this.key) return;
+    try {
+      const { pub, box } = await sealRoot((await this.itemKeys(itemId)).root, itemId, askerPub);
+      this.socket.post({ t: 'key.reply', req, pub, box });
+      this.toast(t.item.keySent(this.displayName(item)));
+    } catch {
+      // a malformed request; the asker times out
+    }
   }
 
   private keyCache = new Map<string, Promise<{ root: Uint8Array<ArrayBuffer>; content: CryptoKey; meta: CryptoKey }>>();

@@ -72,3 +72,32 @@ export async function encryptText(K: Uint8Array<ArrayBuffer>, itemId: string, te
 export async function decryptText(K: Uint8Array<ArrayBuffer>, itemId: string, body: string): Promise<string> {
   return dec.decode(await openBytes(await textKey(K, itemId), body));
 }
+
+// ── Handing one file's key to a device that typed the file's code ──
+// The asker makes a one-time ECDH P-256 key pair and sends only its public half. A device in the
+// share seals itemRoot to it; the server relays public keys and a sealed box, never the key.
+
+const ECDH = { name: 'ECDH', namedCurve: 'P-256' } as const;
+
+export async function newRelayKeys(): Promise<{ keys: CryptoKeyPair; pub: string }> {
+  const keys = await crypto.subtle.generateKey(ECDH, false, ['deriveBits']);
+  return { keys, pub: b64url(new Uint8Array(await crypto.subtle.exportKey('raw', keys.publicKey))) };
+}
+
+async function relayKey(mine: CryptoKey, theirPub: string, itemId: string): Promise<CryptoKey> {
+  const pub = await crypto.subtle.importKey('raw', fromB64url(theirPub), ECDH, false, []);
+  const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: pub }, mine, 256));
+  return aesKey(await hkdfBits(shared, itemId, 'dz1 relay'));
+}
+
+/** Seal itemRoot to the asker's public key. Returns our public key and the sealed box. */
+export async function sealRoot(root: Uint8Array<ArrayBuffer>, itemId: string, askerPub: string): Promise<{ pub: string; box: string }> {
+  const { keys, pub } = await newRelayKeys();
+  return { pub, box: await sealBytes(await relayKey(keys.privateKey, askerPub, itemId), root) };
+}
+
+export async function openRoot(keys: CryptoKeyPair, itemId: string, theirPub: string, box: string): Promise<Uint8Array<ArrayBuffer>> {
+  const root = await openBytes(await relayKey(keys.privateKey, theirPub, itemId), box);
+  if (root.length !== 32) throw new Error('bad key');
+  return root;
+}

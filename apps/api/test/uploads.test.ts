@@ -1,5 +1,6 @@
 import { SELF, env, runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
+import { storedSize } from '@dropzy/shared';
 import { Client, ORIGIN, cid, post } from './helpers';
 
 const FILES = () => (env as any).FILES as R2Bucket;
@@ -25,6 +26,36 @@ async function upload(a: Client, size: number, extra: Record<string, unknown> = 
 }
 
 describe('uploads', () => {
+  it('hands a Private Share file key to a code holder only through a device in the share', async () => {
+    const { body } = await post('/v1/sessions');
+    const a = await Client.open(`scope=ses&id=${body.data.token}`);
+    const ref = (await a.hello()).space.ref as string;
+    const id = cid();
+    const init = await a.request({ t: 'upload.init', cid: id, size: 10, encMeta: 'AAAA', e2ee: true, burn: false });
+    expect(init.ok).toBe(true);
+    const added = await a.next((m) => m.t === 'item.added' && m.item.id === id);
+    await FILES().put(`f/${id}`, new Uint8Array(storedSize(10, true)));
+    expect((await a.request({ t: 'upload.complete', id })).ok).toBe(true);
+
+    // The code finds the file from anywhere…
+    const found = await post('/v1/join', { code: added.item.code });
+    expect(found.body.data).toEqual({ kind: 'file', ref: `${ref}.${id}` });
+
+    // …and the key comes from the device in the share, sealed; the server only relays it.
+    const asked = post(`/v1/files/${ref}.${id}/key`, { pub: 'asker-public-key' });
+    const req = await a.next((m) => m.t === 'key.request');
+    expect(req).toMatchObject({ id, pub: 'asker-public-key' });
+    a.ws.send(JSON.stringify({ t: 'key.reply', req: req.req, pub: 'sharer-public-key', box: 'c2VhbGVk' }));
+    expect((await asked).body.data).toEqual({ pub: 'sharer-public-key', box: 'c2VhbGVk' });
+
+    // Nobody open in the share → it says so.
+    a.ws.close();
+    await new Promise((r) => setTimeout(r, 50));
+    const offline = await post(`/v1/files/${ref}.${id}/key`, { pub: 'asker-public-key' });
+    expect(offline.status).toBe(409);
+    expect(offline.body.error).toBe('sender_offline');
+  });
+
   it('gives each file a code that opens it from the Join page, until it is deleted', async () => {
     const { a, ref } = await room();
     const { id } = await upload(a, 10);

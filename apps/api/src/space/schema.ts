@@ -37,6 +37,7 @@ export const C2SSchema = z.discriminatedUnion('t', [
     parts: z.array(z.number().int().min(1).max(10_000)).min(1).max(20),
   }),
   z.strictObject({ t: z.literal('upload.progress'), id, pct: z.number().min(0).max(100) }),
+  z.strictObject({ t: z.literal('key.reply'), req: z.string().min(1).max(40), pub: b64(120), box: b64(200) }),
   z.strictObject({
     t: z.literal('upload.complete'),
     rid,

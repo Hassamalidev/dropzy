@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { HttpError, api } from '../../lib/api';
 import { duration, formatBytes, nextUtcMidnight, splitName } from '../../lib/format';
 import { decryptStream, fileKeys, openMeta, openThumb } from '../../lib/crypto/files';
-import { keyFromHash } from '../../lib/crypto/keys';
+import { keyFromHash, newRelayKeys, openRoot } from '../../lib/crypto/keys';
 import { isIOS } from '../../lib/device';
 import { clickLink, openSink, pipeTo, saveBlob, startPicker } from '../../lib/sink';
 import { t } from '../../strings/en';
@@ -31,15 +31,15 @@ function refFromPath(): string | null {
 export default function SingleFile() {
   const [ref] = useState(refFromPath);
   const [meta, setMeta] = useState<FileMeta | null>(null);
-  const [state, setState] = useState<'loading' | 'ready' | 'gone' | 'error' | 'missing_key' | 'capacity'>('loading');
+  const [state, setState] = useState<'loading' | 'asking' | 'ready' | 'gone' | 'error' | 'missing_key' | 'offline' | 'capacity'>('loading');
   const [busy, setBusy] = useState(false);
   const [confirmRisky, setConfirmRisky] = useState(false);
   const [msg, setMsg] = useState('');
   const [reporting, setReporting] = useState(false);
   const [now, setNow] = useState(Date.now());
-  const [key] = useState(keyFromHash); // itemRoot for Private Share links (§10)
+  const [key, setKey] = useState(keyFromHash); // itemRoot for Private Share links (§10)
   const [resolved, setResolved] = useState<Resolved | null>(null);
-  const [auto] = useState(takeAutoDownload);
+  const [auto] = useState(takeAutoDownload); // before any early return: it reads the URL once
   const start = useRef<(() => void) | null>(null);
   const fired = useRef(false);
 
@@ -57,12 +57,26 @@ export default function SingleFile() {
           setState('ready');
           return;
         }
-        if (!key) {
-          setState('missing_key');
-          return;
+        let root = key;
+        if (!root) {
+          // Opened from a file code: ask a device still open in the share for this file's key.
+          if (!auto) {
+            setState('missing_key');
+            return;
+          }
+          setState('asking');
+          try {
+            const { keys, pub } = await newRelayKeys();
+            const r = await api.fileKey(ref, pub);
+            root = await openRoot(keys, ref.split('.')[1], r.pub, r.box);
+            setKey(root);
+          } catch (e) {
+            setState(e instanceof HttpError && e.code === 'sender_offline' ? 'offline' : 'missing_key');
+            return;
+          }
         }
         try {
-          const keys = await fileKeys(key);
+          const keys = await fileKeys(root);
           const info = m.encMeta ? await openMeta(keys.meta, m.encMeta) : { name: 'file', mime: '' };
           const thumb = m.thumb ? await openThumb(keys.meta, m.thumb).catch(() => undefined) : undefined;
           setResolved({ ...info, thumb });
@@ -82,13 +96,15 @@ export default function SingleFile() {
     start.current?.();
   }, [auto, state]);
 
-  if (state === 'loading') {
+  if (state === 'loading' || state === 'asking') {
     return (
       <Card>
         <Loader2 className="animate-spin text-accent" aria-hidden />
+        {state === 'asking' && <p className="text-sm text-slate-600 dark:text-slate-400">{t.single.asking}</p>}
       </Card>
     );
   }
+  if (state === 'offline') return <End text={t.single.senderOffline} />;
   if (state === 'capacity') return <End text={t.moments.atCapacity(nextUtcMidnight())} />;
   if (state === 'missing_key') return <End text={t.moments.missingKey} />;
   if (state === 'gone' || !meta || !ref || !resolved) return <End text={state === 'error' ? t.starting.failed : t.single.gone} />;

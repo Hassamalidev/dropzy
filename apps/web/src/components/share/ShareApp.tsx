@@ -11,6 +11,7 @@ import { ConnectCard } from './ConnectCard';
 import { SpaceCtx, useApp } from './context';
 import { FilesPanel } from './FilesPanel';
 import { Hero } from './Hero';
+import { FileCodeBox } from './FileCodeBox';
 import { InfoRow } from './InfoRow';
 import { PassNotice } from './PassNotice';
 import { SearchBar } from './SearchBar';
@@ -77,9 +78,11 @@ function Screen({ mode }: { mode: Mode }) {
           <StatusCard />
           <ConnectCard />
           <PassNotice />
-          {(hasItems || query) && (
-            <div className="flex justify-end">
-              <SearchBar query={query} onQuery={setQuery} />
+          {(mode === 'ses' || hasItems || query) && (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              {/* Private Share: open a file from another share by its code. */}
+              {mode === 'ses' ? <FileCodeBox /> : <span />}
+              {(hasItems || query) && <SearchBar query={query} onQuery={setQuery} />}
             </div>
           )}
           <div className="card grid divide-y divide-slate-200 md:grid-cols-2 md:divide-x md:divide-y-0 dark:divide-night-line">

@@ -159,6 +159,7 @@ export const t = {
     tapToSave: 'Tap to save',
     preparing: (pct: number) => `Getting it ready… ${pct}%`,
     copyLink: 'Copy link',
+    keySent: (name: string) => `Sent ${name} to a device that entered its code`,
     qr: 'QR code',
     qrTitle: 'Scan to download',
     orCode: 'Or enter',
@@ -321,6 +322,8 @@ export const t = {
     download: 'Download',
     report: 'Report',
     gone: 'This file is no longer available.',
+    asking: 'Getting the key from the device that shared it…',
+    senderOffline: 'This is a Private Share file. Open that Private Share on the device that shared it, then enter the code again.',
     openShare: `Open ${brand}`,
   },
 

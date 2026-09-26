@@ -70,7 +70,9 @@ export type C2S =
   | { t: 'pass.create'; rid: string }
   | { t: 'find'; rid: string; code: string }
   | { t: 'device.rename'; rid: string; name: string }
-  | { t: 'signal'; to: string; data: SignalData };
+  | { t: 'signal'; to: string; data: SignalData }
+  // Private Share file key for a device that typed the file's code (sealed to its ECDH key).
+  | { t: 'key.reply'; req: string; pub: string; box: string };
 
 export type ErrorCode =
   | 'bad_request'
@@ -83,7 +85,8 @@ export type ErrorCode =
   | 'uploads_paused'
   | 'uploads_off'
   | 'locked'
-  | 'max_length';
+  | 'max_length'
+  | 'sender_offline';
 
 export type S2C =
   | { t: 'ack'; rid: string; ok: true; data?: unknown }
@@ -94,6 +97,7 @@ export type S2C =
   | { t: 'peers'; peers: PeerList }
   | { t: 'space'; space: SpaceInfo }
   | { t: 'signal'; from: string; data: unknown }
+  | { t: 'key.request'; req: string; id: string; pub: string }
   | { t: 'ended' };
 
 // Ack payloads
@@ -130,6 +134,8 @@ export type FileMeta = {
   expiresAt: number;
   burn: boolean;
 };
+/** A Private Share file's key, sealed to the asking device's ECDH key by a device in that share. */
+export type FileKeyRes = { pub: string; box: string };
 export type HealthRes = { status: 'ok'; storage: boolean; turn: boolean; maxCloudFileBytes: number };
 
 // WebSocket close codes (§8.1)

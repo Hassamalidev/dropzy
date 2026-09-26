@@ -167,7 +167,7 @@ export function FileItem({ row }: { row: FileRow }) {
             <p className="max-w-full truncate text-sm font-medium text-slate-900 dark:text-white" title={name}>
               {name}
             </p>
-            {item?.code && !item.e2ee && (
+            {item?.code && (
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 {t.item.orCode}{' '}
                 <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-base font-semibold tracking-widest text-slate-900 dark:bg-slate-800 dark:text-white">

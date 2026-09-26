@@ -1,7 +1,7 @@
 import { E2EE_CHUNK, E2EE_TAG, partSizeFor, storedSize } from '@dropzy/shared';
 import { describe, expect, it } from 'vitest';
 import { decryptStream, encryptedSource, fileKeys, openMeta, sealMeta } from '../src/lib/crypto/files';
-import { decryptText, encryptText, itemRoot } from '../src/lib/crypto/keys';
+import { decryptText, encryptText, itemRoot, newRelayKeys, openRoot, sealRoot } from '../src/lib/crypto/keys';
 
 const K = crypto.getRandomValues(new Uint8Array(32));
 
@@ -64,5 +64,20 @@ describe('end-to-end encryption', () => {
     const body = await encryptText(K, ID, 'hello');
     expect(await decryptText(K, ID, body)).toBe('hello');
     await expect(decryptText(K, 'BBBBBBBBBBBBBBBBBBBBBB', body)).rejects.toThrow();
+  });
+});
+
+describe('file key relay (file codes)', () => {
+  const ID = 'AAAAAAAAAAAAAAAAAAAAAA';
+
+  it('only the asking device can open the sealed key', async () => {
+    const root = await itemRoot(K, ID);
+    const asker = await newRelayKeys();
+    const { pub, box } = await sealRoot(root, ID, asker.pub);
+    expect(same(await openRoot(asker.keys, ID, pub, box), root)).toBe(true);
+
+    const other = await newRelayKeys();
+    await expect(openRoot(other.keys, ID, pub, box)).rejects.toThrow();
+    await expect(openRoot(asker.keys, 'BBBBBBBBBBBBBBBBBBBBBB', pub, box)).rejects.toThrow();
   });
 });

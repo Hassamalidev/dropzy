@@ -235,6 +235,25 @@ app.post('/v1/files/:ref/download', async (c) => {
   }
 });
 
+const KeyBody = z.strictObject({ pub: z.string().max(120).regex(/^[A-Za-z0-9_-]+$/) });
+
+/** A Private Share file's key, sealed by a device still open in that share (see SpaceDO.relayKey). */
+app.post('/v1/files/:ref/key', async (c) => {
+  if (!originOk(c)) return fail(c, 'forbidden', 403);
+  if (await limited(c, c.env.RL_JOIN)) return fail(c, 'rate_limited', 429);
+  const target = spaceForRef(c.env, c.req.param('ref'));
+  const body = await readJson(c, KeyBody);
+  if (!target || !body) return fail(c, 'not_found', 404);
+  try {
+    const r = await target.stub.relayKey(target.itemId, body.pub);
+    if ('error' in r) return fail(c, r.error, r.error === 'sender_offline' ? 409 : 404);
+    return ok(c, r);
+  } catch (err) {
+    if (isCapacityError(err)) return fail(c, 'at_capacity', 503);
+    return fail(c, 'not_found', 404);
+  }
+});
+
 // ───────────────────────── relayed file bytes (no R2 S3 keys) ─────────────────────────
 
 app.put('/v1/blob/:token', async (c) => {
