@@ -173,7 +173,7 @@ export function FileItem({ row }: { row: FileRow }) {
                 <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-base font-semibold tracking-widest text-slate-900 dark:bg-slate-800 dark:text-white">
                   {item.code}
                 </span>{' '}
-                {t.item.at(`${location.host}/join`)}
+                {t.item.inPrivate}
               </p>
             )}
           </div>

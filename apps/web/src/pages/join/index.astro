@@ -11,8 +11,6 @@ const msg = {
   failed: t.starting.failed,
   joining: t.join.joining,
   join: t.join.button,
-  fileNotFound: t.join.fileNotFound,
-  fileButton: t.join.fileButton,
 };
 ---
 
@@ -42,26 +40,6 @@ const msg = {
       <button type="submit" class="btn-primary" id="join-btn">{t.join.button}</button>
       <a href="/room/new" class="link text-center text-sm">{t.join.orCreate}</a>
     </form>
-  </section>
-  <section class="card mx-auto -mt-4 mb-10 flex max-w-md flex-col gap-3 p-6 sm:px-8">
-    <div>
-      <h2 class="font-semibold text-slate-900 dark:text-white">{t.join.fileTitle}</h2>
-      <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{t.join.fileHint}</p>
-    </div>
-    <form id="file-form" class="flex gap-2" novalidate>
-      <label for="file-code" class="sr-only">{t.join.fileLabel}</label>
-      <input
-        id="file-code"
-        maxlength="4"
-        autocomplete="off"
-        autocapitalize="characters"
-        spellcheck="false"
-        placeholder={t.join.filePlaceholder}
-        class="input font-mono text-lg tracking-[0.3em] uppercase"
-      />
-      <button type="submit" class="btn-primary shrink-0" id="file-btn">{t.join.fileButton}</button>
-    </form>
-    <p id="file-error" role="alert" class="min-h-5 text-sm text-slate-950 dark:text-accent"></p>
   </section>
 </Base>
 
@@ -146,44 +124,6 @@ const msg = {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       submit();
-    });
-    // A file code (4 characters) → that file's page, which starts the download by itself.
-    const fileForm = document.getElementById('file-form');
-    const fileInput = document.getElementById('file-code');
-    const fileErr = document.getElementById('file-error');
-    const fileBtn = document.getElementById('file-btn');
-    fileInput.addEventListener('input', () => {
-      fileInput.value = fileInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-      fileErr.textContent = '';
-    });
-    fileForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const c = fileInput.value.trim();
-      if (c.length !== 4 || fileBtn.disabled) return;
-      fileBtn.disabled = true;
-      fileErr.textContent = '';
-      try {
-        const res = await fetch(`${api}/v1/join`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: c }),
-          credentials: 'omit',
-        });
-        const json = await res.json().catch(() => ({ ok: false, error: res.status === 503 ? 'at_capacity' : 'x' }));
-        if (!json.ok || json.data.kind !== 'file') throw new Error(json.ok ? 'not_found' : json.error);
-        location.assign(`/f/${json.data.ref}?dl=1`);
-      } catch (e) {
-        const k = String(e?.message || '');
-        fileErr.textContent =
-          k === 'not_found'
-            ? msg.fileNotFound
-            : k === 'rate_limited'
-              ? msg.rateLimited
-              : k === 'at_capacity'
-                ? msg.capacity.replace('{time}', nextMidnight())
-                : msg.failed;
-        fileBtn.disabled = false;
-      }
     });
     // /j/{code} pre-fills and submits (§7.3).
     const m = /^\/j\/(\d{6})\/?$/.exec(location.pathname);
