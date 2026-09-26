@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { t } from '../../strings/en';
 import { useApp, useSpace } from './context';
 import type { FileRow } from './FilesPanel';
+import { ReportDialog } from './ReportDialog';
 
 type Action = { label: string; run: () => void };
 
@@ -11,6 +12,8 @@ export function FileMenu({ row }: { row: FileRow }) {
   const space = useSpace();
   const uploads = useApp((s) => s.space?.uploads ?? 'off');
   const [open, setOpen] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const ref0 = useApp((s) => s.space?.ref);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -31,7 +34,9 @@ export function FileMenu({ row }: { row: FileRow }) {
   if (!row.item && tr?.kind === 'send' && tr.state === 'done' && uploads === 'on' && space.localFiles.has(row.id)) {
     actions.push({ label: t.item.makeAvailable, run: () => void space.makeAvailable(row.id) });
   }
-  actions.push(...space.extraFileActions(row));
+  if (row.item && !row.item.mine && row.item.type === 'file' && ref0) {
+    actions.push({ label: t.item.report, run: () => setReporting(true) });
+  }
   if (!actions.length) return null;
 
   return (
@@ -56,6 +61,9 @@ export function FileMenu({ row }: { row: FileRow }) {
             </button>
           ))}
         </div>
+      )}
+      {reporting && row.item && ref0 && (
+        <ReportDialog fileRef={`${ref0}.${row.item.id}`} onClose={() => setReporting(false)} onDone={(m) => space.toast(m)} />
       )}
     </div>
   );

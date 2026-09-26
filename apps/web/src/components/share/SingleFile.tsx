@@ -8,6 +8,7 @@ import { keyFromHash } from '../../lib/crypto/keys';
 import { isIOS } from '../../lib/device';
 import { clickLink, openSink, pipeTo, saveBlob, startPicker } from '../../lib/sink';
 import { t } from '../../strings/en';
+import { ReportDialog } from './ReportDialog';
 import { SaveToPhotos, readWithProgress } from './SaveToPhotos';
 
 // The single-file page /f/{ref} (§9.4). Grab one file without opening the rest of the share.
@@ -26,6 +27,7 @@ export default function SingleFile() {
   const [busy, setBusy] = useState(false);
   const [confirmRisky, setConfirmRisky] = useState(false);
   const [msg, setMsg] = useState('');
+  const [reporting, setReporting] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [key] = useState(keyFromHash); // itemRoot for Private Share links (§10)
   const [resolved, setResolved] = useState<Resolved | null>(null);
@@ -172,6 +174,10 @@ export default function SingleFile() {
           onError={setMsg}
         />
       )}
+      <button type="button" className="link cursor-pointer text-sm" onClick={() => setReporting(true)}>
+        {t.single.report}
+      </button>
+      {reporting && <ReportDialog fileRef={ref} onClose={() => setReporting(false)} onDone={setMsg} />}
       {msg && (
         <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">
           {msg}

@@ -683,11 +683,6 @@ export class Space {
     }, 10_000);
   }
 
-  /** Extension point for more overflow actions (e.g. Report). */
-  extraFileActions(_row: { id: string; item?: Item }): { label: string; run: () => void }[] {
-    return [];
-  }
-
   /** Upload a file this tab sent directly, so it's there later too (§9.1). */
   async makeAvailable(id: string) {
     const file = this.localFiles.get(id);

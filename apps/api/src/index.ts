@@ -1,9 +1,9 @@
-import { CLOSE, type HealthRes, fromB64url, isSixDigits, isToken, randomToken } from '@dropzy/shared';
+import { CLOSE, type HealthRes, fromB64url, isSixDigits, isToken, randomToken, stripUnsafe } from '@dropzy/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { type Env, allowedOrigins, flag, maxCloudBytes, storageEnabled } from './env';
 import { type Ctx, fail, getIpHash, isCapacityError, limited, ok } from './http';
-import { clientIp, networkId } from './ip';
+import { clientIp, networkId, safeEqual } from './ip';
 import { closeWith } from './space/SpaceDO';
 import { verifyPass } from './tokens';
 
@@ -228,6 +228,97 @@ app.post('/v1/files/:ref/download', async (c) => {
     if (isCapacityError(err)) return fail(c, 'at_capacity', 503);
     return fail(c, 'not_found', 404);
   }
+});
+
+// ───────────────────────── reports & feedback (§14.7) ─────────────────────────
+
+const admin = (env: Env) => env.ADMIN.get(env.ADMIN.idFromName('admin'));
+const REASONS = ['illegal', 'malware', 'abuse', 'copyright', 'other'] as const;
+
+const ReportBody = z.strictObject({
+  ref: z.string().regex(/^[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{22}$/),
+  reason: z.enum(REASONS),
+  note: z.string().max(1000).optional(),
+});
+
+app.post('/v1/report', async (c) => {
+  if (!originOk(c)) return fail(c, 'forbidden', 403);
+  if (await limited(c, c.env.RL_PUBLIC)) return fail(c, 'rate_limited', 429);
+  const body = await readJson(c, ReportBody);
+  if (!body) return fail(c, 'bad_request', 400);
+  const id = await admin(c.env).addReport({
+    ref: body.ref,
+    itemId: body.ref.split('.')[1],
+    reason: body.reason,
+    note: body.note ? stripUnsafe(body.note).trim() || undefined : undefined,
+    ipHash: await getIpHash(c),
+  });
+  return id ? ok(c, { id }) : fail(c, 'rate_limited', 429);
+});
+
+const FeedbackBody = z.strictObject({
+  type: z.enum(['feature', 'contact']),
+  message: z.string().min(1).max(4000),
+  email: z.string().email().max(254).optional(),
+  website: z.string().max(200).optional(), // honeypot
+});
+
+app.post('/v1/feedback', async (c) => {
+  if (!originOk(c)) return fail(c, 'forbidden', 403);
+  if (await limited(c, c.env.RL_PUBLIC)) return fail(c, 'rate_limited', 429);
+  const body = await readJson(c, FeedbackBody);
+  if (!body || !body.message.trim()) return fail(c, 'bad_request', 400);
+  // Bots fill the hidden field; pretend it worked.
+  if (body.website) return ok(c, { id: randomToken(16) });
+  const id = await admin(c.env).addFeedback({ type: body.type, message: stripUnsafe(body.message).trim(), email: body.email });
+  return ok(c, { id });
+});
+
+// ───────────────────────── admin (§13, §14.7) ─────────────────────────
+
+app.use('/v1/admin/*', async (c, next) => {
+  const auth = c.req.header('Authorization') || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  if (!c.env.ADMIN_TOKEN || !token || !safeEqual(token, c.env.ADMIN_TOKEN)) return fail(c, 'forbidden', 403);
+  await next();
+});
+
+app.get('/v1/admin/overview', async (c) => {
+  const guard = c.env.GUARD.get(c.env.GUARD.idFromName('guard'));
+  const [usage, lists] = await Promise.all([guard.report(), admin(c.env).overview()]);
+  return ok(c, { usage, ...lists });
+});
+
+const ReportAction = z.strictObject({ action: z.enum(['delete', 'block24', 'block7d', 'dismiss']) });
+
+app.post('/v1/admin/reports/:id', async (c) => {
+  const body = await readJson(c, ReportAction);
+  if (!body) return fail(c, 'bad_request', 400);
+  const report = await admin(c.env).getReport(c.req.param('id'));
+  if (!report) return fail(c, 'not_found', 404);
+  const target = spaceForRef(c.env, report.ref);
+  if (body.action === 'dismiss') {
+    await admin(c.env).setStatus(report.id, 'dismissed');
+    return ok(c, { status: 'dismissed' });
+  }
+  if (!target) return fail(c, 'not_found', 404);
+  if (body.action === 'delete') {
+    await target.stub.adminDelete(target.itemId);
+    await admin(c.env).setStatus(report.id, 'deleted');
+    return ok(c, { status: 'deleted' });
+  }
+  const ipHash = await target.stub.itemIpHash(target.itemId);
+  if (!ipHash) return fail(c, 'not_found', 404);
+  const days = body.action === 'block7d' ? 7 : 1;
+  await c.env.GUARD.get(c.env.GUARD.idFromName('guard')).block(ipHash, Date.now() + days * 86_400_000);
+  await target.stub.adminDelete(target.itemId);
+  await admin(c.env).setStatus(report.id, 'blocked');
+  return ok(c, { status: 'blocked' });
+});
+
+app.delete('/v1/admin/feedback/:id', async (c) => {
+  await admin(c.env).deleteFeedback(c.req.param('id'));
+  return ok(c, { id: c.req.param('id') });
 });
 
 app.notFound((c) => c.json({ ok: false, error: 'not_found' }, 404));
