@@ -138,7 +138,7 @@ export default function SingleFile() {
       )}
       {confirmRisky ? (
         <div className="flex flex-col items-center gap-2">
-          <p className="text-sm text-amber-700 dark:text-amber-300">{t.item.risky}</p>
+          <p className="text-sm text-slate-950 dark:text-accent">{t.item.risky}</p>
           <button type="button" className="btn-primary" onClick={download}>
             {t.item.riskyConfirm}
           </button>
@@ -179,7 +179,7 @@ export default function SingleFile() {
       </button>
       {reporting && <ReportDialog fileRef={ref} onClose={() => setReporting(false)} onDone={setMsg} />}
       {msg && (
-        <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">
+        <p role="alert" className="text-sm text-slate-950 dark:text-accent">
           {msg}
         </p>
       )}

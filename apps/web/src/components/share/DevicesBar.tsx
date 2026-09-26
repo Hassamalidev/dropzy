@@ -40,14 +40,14 @@ export function DevicesBar() {
           type="button"
           onClick={() => setRenaming(true)}
           title={t.devices.tapToRename}
-          className="group inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full bg-accent-soft py-1 pr-3 pl-1.5 text-sm text-slate-800 dark:bg-accent/15 dark:text-slate-100"
+          className="group inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full bg-accent py-1 pr-3 pl-1.5 text-sm text-accent-fg"
         >
           <Avatar name={myName} />
           <span className="font-medium">{myName}</span>
-          <span className="text-slate-500 dark:text-slate-400">
+          <span className="opacity-75">
             · {DEVICE_LABEL[mine.type]} {t.devices.you}
           </span>
-          <Pencil size={13} className="text-slate-400 group-hover:text-slate-700" aria-hidden />
+          <Pencil size={13} className="opacity-60 group-hover:opacity-100" aria-hidden />
         </button>
       )}
       {shown.map((p) => (

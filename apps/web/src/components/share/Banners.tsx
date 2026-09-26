@@ -10,7 +10,7 @@ export function OfflinePill() {
   if (conn !== 'offline' && !(conn === 'connecting' && everOpen)) return null;
   return (
     <div role="status" className="fixed top-3 left-1/2 z-40 -translate-x-1/2">
-      <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-900 dark:bg-amber-900/60 dark:text-amber-100">
+      <span className="inline-flex items-center gap-2 rounded-full bg-accent px-3 py-1.5 text-sm font-medium text-slate-950 dark:bg-accent dark:text-white">
         <WifiOff size={15} aria-hidden />
         {t.moments.offline}
       </span>
@@ -28,7 +28,7 @@ export function ExpiryBanner() {
   const atMax = !!info.maxExpiresAt && info.expiresAt >= info.maxExpiresAt;
   if (left > EXPIRY_WARNING || left <= 0 || atMax) return null;
   return (
-    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100">
+    <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-accent bg-white px-4 py-3 text-sm text-slate-950 dark:border-accent dark:bg-night-card dark:text-white">
       <span className="flex items-center gap-2">
         <Clock size={16} aria-hidden />
         {t.status.endingSoon}
@@ -46,7 +46,7 @@ export function Notice({ children, tone = 'info' }: { children: React.ReactNode;
       role="status"
       className={
         tone === 'warn'
-          ? 'flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100'
+          ? 'flex items-start gap-2 rounded-2xl border border-accent bg-white px-4 py-3 text-sm text-slate-950 dark:border-accent dark:bg-night-card dark:text-white'
           : 'flex items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:border-night-line dark:bg-night-card dark:text-slate-100'
       }
     >

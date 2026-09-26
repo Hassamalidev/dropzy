@@ -64,7 +64,7 @@ export default function AdminApp() {
         <button type="submit" className="btn-primary">
           {t.admin.signIn}
         </button>
-        {err && <p role="alert" className="text-sm text-rose-600">{err}</p>}
+        {err && <p role="alert" className="text-sm text-slate-950">{err}</p>}
       </form>
     );
   }
@@ -151,7 +151,7 @@ export default function AdminApp() {
           ))}
         </ul>
       </section>
-      {err && <p role="alert" className="text-sm text-rose-600">{err}</p>}
+      {err && <p role="alert" className="text-sm text-slate-950">{err}</p>}
     </div>
   );
 }

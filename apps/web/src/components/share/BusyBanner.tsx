@@ -11,7 +11,7 @@ export function BusyBanner() {
   const [msg, setMsg] = useState('');
   if (!busy) return null;
   return (
-    <section className="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+    <section className="flex flex-col gap-3 rounded-2xl border border-accent bg-white p-4 text-sm text-slate-950 dark:border-accent dark:bg-night-card dark:text-white">
       <p>
         {t.moments.busy}{' '}
         <a href="/private" className="font-medium underline">

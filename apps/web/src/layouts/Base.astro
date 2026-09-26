@@ -68,7 +68,7 @@ const ogImage = `${SITE_URL}/og.png`;
           const dark = s ? s === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
           if (dark) {
             document.documentElement.classList.add('dark');
-            document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0f0f10');
+            document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0a0a0a');
           }
         } catch {}
       })();

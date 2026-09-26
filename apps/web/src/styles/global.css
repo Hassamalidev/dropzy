@@ -6,38 +6,33 @@
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji";
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  /* "Tuscan sunset": #E35336 coral · #FFD3AC peach · #9988A1 mauve · #8A2B0E rust. Solid colors only. */
-  --color-coral: #e35336;
-  --color-peach: #ffd3ac;
-  --color-mauve: #9988a1;
-  --color-rust: #8a2b0e;
+  /* Three colors only: white, black and orange #FF5A1F. Solid, no effects. */
+  --color-brand: #ff5a1f;
+  --color-accent: #ff5a1f; /* fills: buttons, logo, active tab, dots */
+  --color-accent-strong: #0a0a0a; /* link text by day: black (orange on white is too faint) */
+  --color-accent-hover: #e64a12;
+  --color-accent-soft: #ff5a1f;
+  --color-accent-fg: #0a0a0a; /* black text on orange */
+  --color-live: #ff5a1f;
+  --color-ink: #0a0a0a;
 
-  --color-brand: #e35336; /* logo, dots, focus ring */
-  --color-accent: #8a2b0e; /* buttons: white text reads well on rust */
-  --color-accent-strong: #8a2b0e; /* link text on white */
-  --color-accent-hover: #6f220b;
-  --color-accent-soft: #ffd3ac;
-  --color-accent-fg: #ffffff;
-  --color-live: #e35336;
-  --color-ink: #1f1823;
-
-  /* Neutrals tinted from mauve, so every slate-* utility follows the palette. */
+  /* Neutral grays between white and black, for borders and secondary text. */
   --color-white: #ffffff;
-  --color-slate-50: #faf8fb;
-  --color-slate-100: #f3f0f5;
-  --color-slate-200: #e4dfe8;
-  --color-slate-300: #cdc4d3;
-  --color-slate-400: #9988a1;
-  --color-slate-500: #6f6078;
-  --color-slate-600: #5a4c62;
-  --color-slate-700: #463a4d;
-  --color-slate-800: #2f2634;
-  --color-slate-900: #1f1823;
-  --color-slate-950: #140f17;
+  --color-slate-50: #fafafa;
+  --color-slate-100: #f5f5f5;
+  --color-slate-200: #e5e5e5;
+  --color-slate-300: #d4d4d4;
+  --color-slate-400: #a3a3a3;
+  --color-slate-500: #737373;
+  --color-slate-600: #525252;
+  --color-slate-700: #404040;
+  --color-slate-800: #262626;
+  --color-slate-900: #171717;
+  --color-slate-950: #0a0a0a;
 
-  --color-night: #161118;
-  --color-night-card: #1f1823;
-  --color-night-line: #3a2f40;
+  --color-night: #0a0a0a;
+  --color-night-card: #141414;
+  --color-night-line: #262626;
 }
 
 @layer base {
@@ -47,12 +42,12 @@
   }
   html.dark {
     color-scheme: dark;
-    --color-accent: #e35336; /* coral buttons with dark text at night */
-    --color-accent-strong: #ffd3ac; /* links: peach on dark */
-    --color-accent-hover: #ffd3ac;
-    --color-accent-soft: #3b1a10;
-    --color-accent-fg: #1f0d06;
-    --color-live: #e35336;
+    --color-accent: #ff5a1f;
+    --color-accent-strong: #ff5a1f; /* orange links read well on black */
+    --color-accent-hover: #ff7a47;
+    --color-accent-soft: #ff5a1f;
+    --color-accent-fg: #0a0a0a;
+    --color-live: #ff5a1f;
   }
   body {
     @apply min-h-dvh bg-white font-sans text-slate-800 antialiased dark:bg-night dark:text-slate-200;
@@ -104,7 +99,7 @@
   @apply w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base text-slate-800 placeholder:text-slate-400 focus:border-accent focus:outline-none sm:text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100;
 }
 @utility link {
-  @apply text-accent-strong underline-offset-2 hover:underline dark:text-accent;
+  @apply text-accent-strong underline decoration-accent decoration-2 underline-offset-2 dark:text-accent;
 }
 
 @layer components {
@@ -129,7 +124,7 @@
     @apply list-decimal pl-6;
   }
   .prose-dz a {
-    @apply text-accent-strong underline underline-offset-2 dark:text-accent;
+    @apply text-accent-strong underline decoration-accent decoration-2 underline-offset-2 dark:text-accent;
   }
   .prose-dz code {
     @apply rounded bg-slate-100 px-1 py-0.5 font-mono text-[0.9em] dark:bg-slate-800;

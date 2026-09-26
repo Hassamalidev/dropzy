@@ -160,7 +160,7 @@ function DropZone({ hint, onFiles }: { hint: string; onFiles: (files: File[]) =>
   return (
     <>
       <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 px-4 py-6 text-center dark:border-slate-700">
-        <span className="inline-flex size-11 items-center justify-center rounded-full bg-accent-soft text-accent-strong dark:bg-accent/15 dark:text-accent">
+        <span className="inline-flex size-11 items-center justify-center rounded-full bg-accent-soft text-accent-strong dark:bg-accent dark:text-accent-fg">
           <Upload size={20} aria-hidden />
         </span>
         <p className="font-medium text-slate-800 dark:text-slate-100">
@@ -184,7 +184,7 @@ function DropZone({ hint, onFiles }: { hint: string; onFiles: (files: File[]) =>
         />
       </div>
       {over && (
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-accent/15">
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="rounded-2xl border-2 border-dashed border-accent bg-white px-10 py-8 text-lg font-semibold text-accent-strong dark:bg-night-card dark:text-accent">
             {t.files.dropOverlay}
           </div>
