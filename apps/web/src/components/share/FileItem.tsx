@@ -105,6 +105,11 @@ export function FileItem({ row }: { row: FileRow }) {
             </>
           )}
           <FileMenu row={row} />
+          {!item && transfer && transfer.state === 'done' && (
+            <button type="button" className="btn-icon ml-auto size-9" onClick={() => space.deleteLocal(transfer.id)} aria-label={t.item.delete}>
+              <Trash2 size={15} aria-hidden />
+            </button>
+          )}
           {item && space.canDelete(item) && (
             <button type="button" className="btn-icon ml-auto size-9" onClick={() => space.deleteItem(item.id)} aria-label={t.item.delete}>
               <Trash2 size={15} aria-hidden />

@@ -644,6 +644,26 @@ export class Space {
     }
   }
 
+  /** Remove a directly sent or received file from this device (with Undo). Nothing is on the server. */
+  deleteLocal(id: string) {
+    this.store.set((s) => ({ hidden: [...s.hidden, id] }));
+    const timer = window.setTimeout(() => {
+      this.received.delete(id);
+      this.localFiles.delete(id);
+      this.localThumbs.delete(id);
+      this.setTransfer(id, null);
+      this.store.set((s) => ({ hidden: s.hidden.filter((h) => h !== id) }));
+      void import('./direct').then((m) => m.forgetReceived(id));
+    }, UNDO_MS);
+    this.toast(t.moments.deleted, {
+      label: t.moments.undo,
+      run: () => {
+        clearTimeout(timer);
+        this.store.set((s) => ({ hidden: s.hidden.filter((h) => h !== id) }));
+      },
+    });
+  }
+
   saveReceived(id: string) {
     const file = this.received.get(id);
     if (!file) return;
