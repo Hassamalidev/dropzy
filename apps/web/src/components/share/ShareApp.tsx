@@ -6,6 +6,7 @@ import { initPasteShortcut } from '../../lib/shortcuts';
 import { type Mode, Space } from '../../lib/space';
 import { t } from '../../strings/en';
 import { ExpiryBanner, OfflinePill } from './Banners';
+import { BusyBanner } from './BusyBanner';
 import { ConnectCard } from './ConnectCard';
 import { SpaceCtx, useApp } from './context';
 import { DevicesBar } from './DevicesBar';
@@ -25,6 +26,7 @@ export default function ShareApp({ mode }: { mode: Mode }) {
   const [space] = useState(() => {
     const token = mode === 'wifi' ? null : tokenFromPath();
     const key = mode === 'ses' ? keyFromHash() : null;
+    if (mode === 'wifi') Space.adoptPass();
     return new Space(mode, token, key);
   });
 
@@ -68,6 +70,7 @@ function Screen({ mode }: { mode: Mode }) {
         <div className="flex flex-col gap-4">
           <ExpiryBanner />
           <DevicesBar />
+          <BusyBanner />
           <StatusCard />
           <ConnectCard />
           <div className="grid items-start gap-4 md:grid-cols-2">

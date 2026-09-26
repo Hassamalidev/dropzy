@@ -7,9 +7,12 @@ import {
   HOUR,
   type Item,
   MAX_ITEMS_PER_DEVICE,
+  MAX_FOUND,
   MAX_ITEMS_PER_SPACE,
   MAX_MESSAGE_BYTES,
   type PeerList,
+  PAIR_CODE_TTL,
+  type PassCreateAck,
   ROOM_EXTEND,
   ROOM_MAX,
   ROOM_TTL,
@@ -33,6 +36,7 @@ import {
   cleanText,
   contentDisposition,
   estClassA,
+  isSearchCode,
   isSinglePut,
   partCount,
   partSizeFor,
@@ -46,6 +50,7 @@ import {
 import { DurableObject } from 'cloudflare:workers';
 import { type Env, maxCloudBytes, num, storageEnabled } from '../env';
 import { R2 } from '../r2';
+import { makePass } from '../tokens';
 import { type C2SMsg, C2SSchema } from './schema';
 
 // One Durable Object per Wi-Fi network / private share / room (§4.1).
@@ -94,6 +99,7 @@ export type Att = {
   peerId: string;
   ipHash: string;
   viaPass: boolean;
+  net?: string; // network id (Wi-Fi spaces), for making passes
   ready: boolean;
   deviceHash?: string;
   name?: string;
@@ -293,6 +299,7 @@ export class SpaceDO extends DurableObject<Env> {
     const kind = req.headers.get('x-dz-kind');
     const ipHash = req.headers.get('x-dz-ip') || '';
     const viaPass = req.headers.get('x-dz-via-pass') === '1';
+    const net = req.headers.get('x-dz-net') || undefined;
 
     let s = this.space();
     if (!s && kind === 'net') s = this.ensureNet();
@@ -306,7 +313,7 @@ export class SpaceDO extends DurableObject<Env> {
     const [client, server] = [pair[0], pair[1]];
     const peerId = randomToken(9);
     this.ctx.acceptWebSocket(server, [`peer:${peerId}`]);
-    const att: Att = { peerId, ipHash, viaPass, ready: false, found: [], b: {}, seen: Date.now() };
+    const att: Att = { peerId, ipHash, viaPass, net, ready: false, found: [], b: {}, seen: Date.now() };
     server.serializeAttachment(att);
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -438,7 +445,31 @@ export class SpaceDO extends DurableObject<Env> {
   }
 
   /** Extension point: network passes and find-by-code (Wi-Fi resilience). */
-  protected async handleWifi(_ws: WebSocket, _att: Att, _msg: C2SMsg): Promise<unknown> {
+  protected async handleWifi(ws: WebSocket, att: Att, msg: C2SMsg): Promise<unknown> {
+    const s = this.space() as SpaceRow;
+    if (s.kind !== 'net') throw new ApiError('bad_request');
+    if (msg.t === 'pass.create') {
+      // Connect a device: a signed pass (QR) plus a single-use 6-digit pair code (§7.1).
+      if (!att.net) throw new ApiError('bad_request');
+      const { pass, exp } = await makePass(this.env.PASS_SECRET, att.net);
+      const expiresAt = Date.now() + PAIR_CODE_TTL;
+      const code = await this.directory().allocatePair(pass, Math.min(expiresAt, exp));
+      return { pass, code, expiresAt } satisfies PassCreateAck;
+    }
+    if (msg.t === 'find') {
+      // Find an item by its 4-character code; remembered per socket (up to 30) (§7.1).
+      const code = msg.code.trim().toUpperCase();
+      const row = isSearchCode(code) ? this.liveItems().find((r) => r.code === code) : undefined;
+      if (!row) throw new ApiError('not_found');
+      if (!att.found.includes(row.id)) {
+        att.found.push(row.id);
+        if (att.found.length > MAX_FOUND) att.found.shift();
+        ws.serializeAttachment(att);
+      }
+      const item = this.toItem(row, att);
+      this.send(ws, { t: 'item.added', item });
+      return { item };
+    }
     throw new ApiError('bad_request');
   }
 

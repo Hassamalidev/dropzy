@@ -5,6 +5,7 @@ import { type Env, allowedOrigins, flag, maxCloudBytes, storageEnabled } from '.
 import { type Ctx, fail, getIpHash, isCapacityError, limited, ok } from './http';
 import { clientIp, networkId } from './ip';
 import { closeWith } from './space/SpaceDO';
+import { verifyPass } from './tokens';
 
 export { SpaceDO } from './space/SpaceDO';
 export { DirectoryDO } from './directory/DirectoryDO';
@@ -83,11 +84,13 @@ app.get('/v1/ws', async (c) => {
   let name: string;
   let kind: 'net' | 'ses' | 'room';
   let viaPass = false;
+  let net = '';
   if (scope === 'wifi') {
-    name = `net:${await networkId(c.env.IP_HASH_SECRET, clientIp(c.req.raw))}`;
+    net = await networkId(c.env.IP_HASH_SECRET, clientIp(c.req.raw));
+    name = `net:${net}`;
     kind = 'net';
   } else if (scope === 'pass') {
-    const net = await resolvePass(c.env, id);
+    net = (await resolvePass(c.env, id)) ?? '';
     if (!net) return closeWith(CLOSE.FORBIDDEN, 'forbidden');
     name = `net:${net}`;
     kind = 'net';
@@ -101,6 +104,7 @@ app.get('/v1/ws', async (c) => {
 
   const headers = new Headers(c.req.raw.headers);
   headers.set('x-dz-kind', kind);
+  if (net) headers.set('x-dz-net', net);
   headers.set('x-dz-ip', await getIpHash(c));
   if (viaPass) headers.set('x-dz-via-pass', '1');
   try {
@@ -111,9 +115,9 @@ app.get('/v1/ws', async (c) => {
   }
 });
 
-/** Extension point for network passes (Wi-Fi resilience phase). */
-async function resolvePass(_env: Env, _pass: string): Promise<string | null> {
-  return null;
+/** A network pass lets a device join a Wi-Fi space when detection misses (§7.1). */
+function resolvePass(env: Env, pass: string): Promise<string | null> {
+  return verifyPass(env.PASS_SECRET, pass);
 }
 
 // ───────────────────────── spaces ─────────────────────────

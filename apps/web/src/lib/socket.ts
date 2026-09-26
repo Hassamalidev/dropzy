@@ -74,8 +74,10 @@ export class SpaceSocket {
 
   /** Reconnect with a fresh query (e.g. after joining or leaving a Wi-Fi pass). */
   restart() {
-    this.ws?.close(1000);
+    this.stopped = false;
+    const old = this.ws;
     this.ws = null;
+    old?.close(1000);
     this.ready = false;
     this.attempt = 0;
     this.connect();

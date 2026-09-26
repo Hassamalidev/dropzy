@@ -12,6 +12,7 @@ export function DevicesBar() {
   const me = useApp((s) => s.peerId);
   const myName = useApp((s) => s.me.name);
   const [renaming, setRenaming] = useState(false);
+  const viaPass = useApp((s) => !!s.space?.viaPass);
 
   if (!Array.isArray(peers)) {
     return (
@@ -53,6 +54,14 @@ export function DevicesBar() {
         <PeerChip key={p.peerId} peer={p} />
       ))}
       {extra > 0 && <span className="chip">{t.devices.more(extra)}</span>}
+      {viaPass && (
+        <span className="ml-auto inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          {t.connect.connectedByCode} ·
+          <button type="button" className="link cursor-pointer" onClick={() => space.leavePass()}>
+            {t.connect.leave}
+          </button>
+        </span>
+      )}
       {renaming && (
         <RenameDialog
         open

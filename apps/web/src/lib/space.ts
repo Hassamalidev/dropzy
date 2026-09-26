@@ -3,6 +3,7 @@ import {
   DIRECT_FILE_TTL,
   IOS_DIRECT_CAP,
   MAX_DIRECT_TARGETS,
+  type PassCreateAck,
   type SignalData,
   type DownloadUrlAck,
   GiB,
@@ -23,7 +24,7 @@ import { t } from '../strings/en';
 import { bump, initBadge } from './badge';
 import { copyText } from './clipboard';
 import { decryptText, encryptText } from './crypto/keys';
-import { deleteToken, deviceId, deviceName, deviceType, isIOS, saveDeleteToken, setDeviceName } from './device';
+import { deleteToken, deviceId, deviceName, deviceType, isIOS, saveDeleteToken, session, setDeviceName, setSession } from './device';
 import { nextUtcMidnight } from './format';
 import type { Direct } from './direct';
 import { cleanTmp, clickLink, hasOpfs, openSink, pipeTo, saveBlob, type startPicker } from './sink';
@@ -119,7 +120,14 @@ export class Space {
       onOpen: () => this.hello(),
       onMessage: (m) => this.onMessage(m),
       onDown: () => this.store.set({ conn: 'offline' }),
-      onTerminal: (why) => this.store.set({ conn: why }),
+      onTerminal: (why) => {
+        // An expired or invalid pass: forget it and fall back to normal detection.
+        if (this.mode === 'wifi' && session('dz-pass') && why === 'forbidden') {
+          this.leavePass();
+          return;
+        }
+        this.store.set({ conn: why });
+      },
     });
   }
 
@@ -129,7 +137,10 @@ export class Space {
 
   query(): string {
     if (this.queryFn) return this.queryFn();
-    if (this.mode === 'wifi') return 'scope=wifi';
+    if (this.mode === 'wifi') {
+      const pass = session('dz-pass');
+      return pass ? `scope=pass&id=${encodeURIComponent(pass)}` : 'scope=wifi';
+    }
     return `scope=${this.mode}&id=${encodeURIComponent(this.token ?? '')}`;
   }
 
@@ -767,6 +778,40 @@ export class Space {
       return true;
     } catch (e) {
       this.toast(this.errorText(e));
+      return false;
+    }
+  }
+
+  // ───────────────────────── Wi-Fi resilience (§7.1) ─────────────────────────
+
+  /** Read `#p=` once, keep it in sessionStorage, and remove it from the address bar. */
+  static adoptPass() {
+    const m = /[#&]p=([A-Za-z0-9_.-]+)/.exec(location.hash);
+    if (!m) return;
+    setSession('dz-pass', m[1]);
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+
+  leavePass() {
+    setSession('dz-pass', null);
+    this.store.set({ conn: 'connecting', items: [], peers: [] });
+    this.socket.restart();
+  }
+
+  async createPass(): Promise<PassCreateAck | null> {
+    try {
+      return await this.socket.request<PassCreateAck>({ t: 'pass.create' }, { idempotent: false });
+    } catch {
+      return null;
+    }
+  }
+
+  async find(code: string): Promise<boolean> {
+    try {
+      await this.socket.request({ t: 'find', code: code.trim().toUpperCase() });
+      return true;
+    } catch (e) {
+      if (e instanceof RequestError && e.code === 'rate_limited') this.toast(t.moments.rateLimited);
       return false;
     }
   }
