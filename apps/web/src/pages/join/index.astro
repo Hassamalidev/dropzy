@@ -1,10 +1,133 @@
 ---
 import Base from '../../layouts/Base.astro';
+import { API_URL } from '../../lib/site';
+import { t } from '../../strings/en';
+
+const msg = {
+  wrongCode: t.moments.wrongCode,
+  locked: t.moments.locked,
+  rateLimited: t.moments.rateLimited,
+  capacity: t.moments.atCapacity('{time}'),
+  failed: t.starting.failed,
+  joining: t.join.joining,
+  join: t.join.button,
+};
 ---
 
-<Base title="Join a room" active={'join'} noindex={true}>
-  <section class="card mx-auto my-10 max-w-xl p-8 text-center">
-    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">Join a room</h1>
-    <p class="mt-2 text-slate-500 dark:text-slate-400">This page is being built.</p>
+<Base title="Join a room" active="join" noindex>
+  <section class="card mx-auto my-10 flex max-w-md flex-col gap-5 p-6 sm:p-8">
+    <div class="text-center">
+      <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">{t.join.title}</h1>
+      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">{t.join.subtitle}</p>
+    </div>
+    <form id="join-form" class="flex flex-col gap-4" novalidate>
+      <div class="flex justify-center gap-2" id="digits">
+        {
+          [1, 2, 3, 4, 5, 6].map((i) => (
+            <input
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              maxlength="6"
+              autocomplete={i === 1 ? 'one-time-code' : 'off'}
+              aria-label={t.join.digit(i)}
+              class="input h-14 w-11 px-0 text-center font-mono text-2xl sm:w-12"
+            />
+          ))
+        }
+      </div>
+      <p id="join-error" role="alert" class="min-h-5 text-center text-sm text-rose-600 dark:text-rose-400"></p>
+      <button type="submit" class="btn-primary" id="join-btn">{t.join.button}</button>
+      <a href="/room/new" class="link text-center text-sm">{t.join.orCreate}</a>
+    </form>
   </section>
 </Base>
+
+<script is:inline define:vars={{ api: API_URL, msg }}>
+  (() => {
+    const form = document.getElementById('join-form');
+    const boxes = Array.from(document.querySelectorAll('#digits input'));
+    const err = document.getElementById('join-error');
+    const btn = document.getElementById('join-btn');
+    let busy = false;
+    const code = () => boxes.map((b) => b.value).join('');
+    const fill = (digits, from = 0) => {
+      const d = digits.replace(/\D/g, '').slice(0, 6 - from);
+      d.split('').forEach((ch, i) => (boxes[from + i].value = ch));
+      const next = Math.min(from + d.length, 5);
+      boxes[next].focus();
+      if (code().length === 6) submit();
+    };
+    boxes.forEach((box, i) => {
+      box.addEventListener('input', () => {
+        err.textContent = '';
+        const v = box.value.replace(/\D/g, '');
+        box.value = '';
+        if (v) fill(v, i);
+      });
+      box.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !box.value && i > 0) {
+          boxes[i - 1].value = '';
+          boxes[i - 1].focus();
+          e.preventDefault();
+        } else if (e.key === 'ArrowLeft' && i > 0) boxes[i - 1].focus();
+        else if (e.key === 'ArrowRight' && i < 5) boxes[i + 1].focus();
+      });
+      box.addEventListener('paste', (e) => {
+        const text = e.clipboardData?.getData('text') || '';
+        if (!text) return;
+        e.preventDefault();
+        boxes.forEach((b) => (b.value = ''));
+        fill(text, 0);
+      });
+    });
+    const nextMidnight = () => {
+      const n = new Date();
+      return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() + 1)).toLocaleTimeString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+    };
+    async function submit() {
+      const c = code();
+      if (busy || !/^\d{6}$/.test(c)) return;
+      busy = true;
+      btn.textContent = msg.joining;
+      err.textContent = '';
+      try {
+        const res = await fetch(`${api}/v1/join`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: c }),
+          credentials: 'omit',
+        });
+        const json = await res.json().catch(() => ({ ok: false, error: res.status === 503 ? 'at_capacity' : 'x' }));
+        if (!json.ok) throw new Error(json.error);
+        if (json.data.kind === 'room') location.assign(`/r/${json.data.token}`);
+        else location.assign(`/#p=${json.data.pass}`);
+      } catch (e) {
+        const k = String(e?.message || '');
+        err.textContent =
+          k === 'not_found'
+            ? msg.wrongCode
+            : k === 'locked'
+              ? msg.locked
+              : k === 'rate_limited'
+                ? msg.rateLimited
+                : k === 'at_capacity'
+                  ? msg.capacity.replace('{time}', nextMidnight())
+                  : msg.failed;
+        btn.textContent = msg.join;
+        busy = false;
+      }
+    }
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      submit();
+    });
+    // /j/{code} pre-fills and submits (§7.3).
+    const m = /^\/j\/(\d{6})\/?$/.exec(location.pathname);
+    if (m) fill(m[1], 0);
+    else boxes[0].focus();
+  })();
+</script>

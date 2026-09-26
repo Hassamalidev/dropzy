@@ -1,10 +1,11 @@
 ---
+import ShareApp from '../components/share/ShareApp';
 import Base from '../layouts/Base.astro';
+import { t } from '../strings/en';
 ---
 
-<Base title="Dropzy — Share files between phone and PC" active={'wifi'} noindex={false}>
-  <section class="card mx-auto my-10 max-w-xl p-8 text-center">
-    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">Dropzy — Share files between phone and PC</h1>
-    <p class="mt-2 text-slate-500 dark:text-slate-400">This page is being built.</p>
-  </section>
+<Base title="Dropzy — Send files between phone and PC, free" active={'wifi'} noindex={false}>
+  <ShareApp client:only="react" mode="wifi">
+    <div slot="fallback" class="card mt-8 flex items-center justify-center p-10 text-slate-500" role="status">{t.starting.connecting}</div>
+  </ShareApp>
 </Base>

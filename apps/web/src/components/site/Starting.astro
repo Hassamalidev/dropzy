@@ -1,0 +1,68 @@
+---
+import { API_URL } from '../../lib/site';
+import { t } from '../../strings/en';
+
+// "Starting your private share…" / "Creating your room…" — creates the space, then a full-page
+// navigation into it (§7.2, §7.3). Only a tiny inline script; no React.
+interface Props {
+  kind: 'private' | 'room';
+}
+const { kind } = Astro.props;
+const msg = {
+  failed: t.starting.failed,
+  rateLimited: t.moments.rateLimited,
+  capacity: t.moments.atCapacity('{time}'),
+};
+---
+
+<section class="card mx-auto my-10 flex max-w-md flex-col items-center gap-4 p-8 text-center" aria-live="polite">
+  <svg id="start-spin" class="size-8 animate-spin text-accent" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-opacity="0.25" stroke-width="3"></circle>
+    <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+  </svg>
+  <p id="start-text" class="text-lg text-slate-700 dark:text-slate-200">
+    {kind === 'private' ? t.starting.private : t.starting.room}
+  </p>
+  <button id="start-retry" type="button" class="btn-primary hidden">{t.starting.retry}</button>
+</section>
+
+<script is:inline define:vars={{ api: API_URL, kind, msg }}>
+  (() => {
+    const text = document.getElementById('start-text');
+    const spin = document.getElementById('start-spin');
+    const retry = document.getElementById('start-retry');
+    const b64url = (b) => btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const nextMidnight = () => {
+      const n = new Date();
+      return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate() + 1)).toLocaleTimeString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+    };
+    async function go() {
+      retry.classList.add('hidden');
+      spin.classList.remove('hidden');
+      try {
+        const res = await fetch(`${api}/v1/${kind === 'private' ? 'sessions' : 'rooms'}`, { method: 'POST', credentials: 'omit' });
+        const json = await res.json().catch(() => ({ ok: false, error: res.status === 503 ? 'at_capacity' : 'x' }));
+        if (!json.ok) throw new Error(json.error);
+        if (kind === 'private') {
+          // The key is made here and lives only in the link's fragment (§10).
+          const key = new Uint8Array(32);
+          crypto.getRandomValues(key);
+          location.replace(`/s/${json.data.token}#k=${b64url(key)}`);
+        } else {
+          location.replace(`/r/${json.data.token}`);
+        }
+      } catch (e) {
+        spin.classList.add('hidden');
+        const code = String(e?.message || '');
+        text.textContent =
+          code === 'rate_limited' ? msg.rateLimited : code === 'at_capacity' ? msg.capacity.replace('{time}', nextMidnight()) : msg.failed;
+        retry.classList.remove('hidden');
+      }
+    }
+    retry.addEventListener('click', go);
+    go();
+  })();
+</script>
