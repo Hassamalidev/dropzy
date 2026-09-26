@@ -9,7 +9,7 @@ export function OfflinePill() {
   const everOpen = useApp((s) => s.everOpen);
   if (conn !== 'offline' && !(conn === 'connecting' && everOpen)) return null;
   return (
-    <div role="status" className="fixed top-3 left-1/2 z-40 -translate-x-1/2">
+    <div role="status" className="fixed top-3 left-1/2 z-50 -translate-x-1/2">
       <span className="inline-flex items-center gap-2 rounded-full bg-accent px-3 py-1.5 text-sm font-medium text-slate-950 dark:bg-accent dark:text-white">
         <WifiOff size={15} aria-hidden />
         {t.moments.offline}

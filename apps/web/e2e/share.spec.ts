@@ -108,7 +108,7 @@ test.describe('Layout', () => {
     const p = await page(browser, { width: 360, dark: true });
     await p.goto('/room/new');
     await p.waitForURL(/\/r\//);
-    await expect(p.getByText('Files', { exact: true })).toBeVisible();
+    await expect(p.getByRole('heading', { name: 'Share files' })).toBeVisible();
     expect(await p.evaluate(() => document.documentElement.classList.contains('dark'))).toBe(true);
     expect(await p.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
     await expect(p.getByRole('navigation', { name: 'Sharing modes' }).last()).toBeVisible();

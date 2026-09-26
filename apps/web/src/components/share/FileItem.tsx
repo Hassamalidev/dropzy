@@ -1,5 +1,5 @@
-import { type Item, isImage, isRisky, isVideo } from '@dropzy/shared';
-import { Download, File, FileArchive, FileAudio, FileImage, FileText, FileVideo, Link2, Lock, Trash2, X } from 'lucide-react';
+import { EXPIRY_WARNING, type Item, isImage, isRisky, isVideo } from '@dropzy/shared';
+import { Check, Download, File, FileArchive, FileAudio, FileImage, FileText, FileVideo, Link2, Lock, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { ago, duration, formatBytes, speed, splitName } from '../../lib/format';
 import { startPicker } from '../../lib/sink';
@@ -36,87 +36,98 @@ export function FileItem({ row }: { row: FileRow }) {
 
   const canPreview = !!item && ready && !item.burn && !item.e2ee && (isImage(mime) || isVideo(mime));
 
+  const soon = !!item && ready && !item.burn && item.expiresAt - now <= EXPIRY_WARNING;
+
   return (
-    <li className="flex gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700/70 dark:bg-slate-900/40">
-      <button
-        type="button"
-        disabled={!canPreview}
-        onClick={async () => item && setPreview(await space.downloadUrl(item).catch(() => null))}
-        className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-white enabled:cursor-zoom-in dark:bg-slate-800"
-        aria-label={canPreview ? `${t.item.preview}: ${name}` : name}
-      >
-        {thumb ? <img src={thumb} alt="" className="size-full object-cover" /> : <TypeIcon mime={mime} name={name} />}
-      </button>
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <p className="flex min-w-0 font-medium text-slate-900 dark:text-white" title={name}>
-          <span className="truncate">{base}</span>
-          <span className="shrink-0">{ext}</span>
-        </p>
-        <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-slate-500 dark:text-slate-400">
-          {item?.e2ee && <Lock size={12} aria-label={t.item.encrypted} />}
-          {item?.code && (
-            <span className="rounded bg-slate-200/70 px-1.5 font-mono text-[11px] dark:bg-slate-700" title={t.item.code}>
-              {item.code}
+    <li className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700/70 dark:bg-slate-900/40">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          disabled={!canPreview}
+          onClick={async () => item && setPreview(await space.downloadUrl(item).catch(() => null))}
+          className="relative flex size-11 shrink-0 overflow-hidden rounded-lg bg-slate-100 enabled:cursor-zoom-in dark:bg-slate-800"
+          aria-label={canPreview ? `${t.item.preview}: ${name}` : name}
+        >
+          {thumb ? <img src={thumb} alt="" className="size-full object-cover" /> : <TypeIcon mime={mime} name={name} />}
+        </button>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p className="flex min-w-0 items-center gap-2">
+            <span className="flex min-w-0 font-medium text-slate-900 dark:text-white" title={name}>
+              <span className="truncate">{base}</span>
+              <span className="shrink-0">{ext}</span>
             </span>
-          )}
-          <span>{formatBytes(size)}</span>
-          <span>· {t.item.from(from)}</span>
-          {item && <span>· {ago(item.createdAt, now)}</span>}
-        </p>
-        <StatusLine item={item} transfer={transfer} now={now} />
-        <div className="mt-1 flex flex-wrap items-center gap-1">
+            {item?.code && <Code code={item.code} />}
+          </p>
+          <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-slate-500 dark:text-slate-400">
+            {item?.e2ee && <Lock size={12} aria-label={t.item.encrypted} />}
+            <span>{formatBytes(size)}</span>
+            {!mine && <span>· {t.item.from(from)}</span>}
+            {item && <span>· {ago(item.createdAt, now)}</span>}
+            {item && ready && (
+              <span className={soon ? 'font-medium text-accent-ink' : undefined}>
+                · {item.burn ? t.item.burn : t.item.expiresIn(duration(item.expiresAt - now))}
+              </span>
+            )}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center">
           {transfer && transfer.kind !== 'recv' && transfer.state === 'active' && (
-            <button type="button" className="btn-ghost min-h-9 px-2.5 text-xs" onClick={() => space.cancelUpload(transfer.id)}>
-              <X size={14} aria-hidden />
-              {t.item.cancel}
+            <button type="button" className="btn-icon size-9" onClick={() => space.cancelUpload(transfer.id)} aria-label={t.item.cancel} title={t.item.cancel}>
+              <X size={16} aria-hidden />
             </button>
           )}
           {!item && transfer?.kind === 'recv' && transfer.state === 'done' && (
             <>
-              <button type="button" className="btn-secondary min-h-9 px-3 text-xs" onClick={() => space.saveReceived(transfer.id)}>
-                <Download size={14} aria-hidden />
-                {transfer.saved ? t.item.saved : t.item.save}
-              </button>
               <SaveToPhotos
                 mime={mime}
                 ready={space.received.get(transfer.id)}
                 load={async () => space.received.get(transfer.id) as File}
                 onError={(m) => space.toast(m)}
               />
+              <button
+                type="button"
+                className="btn-icon size-9 text-accent-ink"
+                onClick={() => space.saveReceived(transfer.id)}
+                aria-label={transfer.saved ? t.item.saved : t.item.save}
+                title={transfer.saved ? t.item.saved : t.item.save}
+              >
+                {transfer.saved ? <Check size={16} aria-hidden /> : <Download size={16} aria-hidden />}
+              </button>
             </>
           )}
           {item && ready && (
             <>
-              <button
-                type="button"
-                className="btn-secondary min-h-9 px-3 text-xs"
-                onClick={() => (!item.mine && isRisky(name) ? setRisky(true) : download())}
-              >
-                <Download size={14} aria-hidden />
-                {t.item.download}
-              </button>
               <SaveToPhotos mime={mime} load={(onPct) => space.fetchFile(item, onPct)} onError={(m) => space.toast(m)} />
               {!item.burn && (
-                <button type="button" className="btn-ghost min-h-9 px-2.5 text-xs" onClick={() => space.copyFileLink(item)}>
-                  <Link2 size={14} aria-hidden />
-                  {t.item.copyLink}
+                <button type="button" className="btn-icon size-9" onClick={() => space.copyFileLink(item)} aria-label={t.item.copyLink} title={t.item.copyLink}>
+                  <Link2 size={16} aria-hidden />
                 </button>
               )}
+              <button
+                type="button"
+                className="btn-icon size-9 text-accent-ink"
+                onClick={() => (!item.mine && isRisky(name) ? setRisky(true) : download())}
+                aria-label={t.item.download}
+                title={t.item.download}
+              >
+                <Download size={16} aria-hidden />
+              </button>
             </>
           )}
           <FileMenu row={row} />
           {!item && transfer && transfer.state === 'done' && (
-            <button type="button" className="btn-icon ml-auto size-9" onClick={() => space.deleteLocal(transfer.id)} aria-label={t.item.delete}>
+            <button type="button" className="btn-icon size-9" onClick={() => space.deleteLocal(transfer.id)} aria-label={t.item.delete} title={t.item.delete}>
               <Trash2 size={15} aria-hidden />
             </button>
           )}
           {item && space.canDelete(item) && (
-            <button type="button" className="btn-icon ml-auto size-9" onClick={() => space.deleteItem(item.id)} aria-label={t.item.delete}>
+            <button type="button" className="btn-icon size-9" onClick={() => space.deleteItem(item.id)} aria-label={t.item.delete} title={t.item.delete}>
               <Trash2 size={15} aria-hidden />
             </button>
           )}
         </div>
       </div>
+      <StatusLine item={item} transfer={transfer} />
       {risky && (
         <Dialog open onClose={() => setRisky(false)} title={t.item.riskyTitle}>
           <p className="text-sm text-slate-600 dark:text-slate-300">{t.item.risky}</p>
@@ -151,7 +162,17 @@ export function FileItem({ row }: { row: FileRow }) {
   );
 }
 
-function StatusLine({ item, transfer, now }: { item?: Item; transfer?: Transfer; now: number }) {
+/** The item's search code: find it on busy networks, or read it out to someone. */
+export function Code({ code }: { code: string }) {
+  return (
+    <span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300" title={t.item.code}>
+      {code}
+    </span>
+  );
+}
+
+/** Progress and direct-transfer states. Ready items say everything in the meta line. */
+function StatusLine({ item, transfer }: { item?: Item; transfer?: Transfer }) {
   const cls = 'text-xs text-slate-600 dark:text-slate-300';
   if (transfer && transfer.state === 'active') {
     const pct = transfer.size ? Math.floor((transfer.loaded / transfer.size) * 100) : 0;
@@ -177,8 +198,7 @@ function StatusLine({ item, transfer, now }: { item?: Item; transfer?: Transfer;
   if (item.status === 'uploading') {
     return <p className={cls}>{item.mine ? t.item.waiting : t.item.othersUploading(item.from.name, item.pct ?? 0)}</p>;
   }
-  if (item.burn) return <p className={cls}>{t.item.burn}</p>;
-  return <p className={cls}>{t.item.availableFor(duration(item.expiresAt - now))}</p>;
+  return null;
 }
 
 function TypeIcon({ mime = '', name }: { mime?: string; name: string }) {

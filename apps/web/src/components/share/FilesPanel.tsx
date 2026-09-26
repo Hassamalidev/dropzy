@@ -1,24 +1,26 @@
-import { type Item, SEARCH_THRESHOLD } from '@dropzy/shared';
-import { Download, Flame, Search, Upload } from 'lucide-react';
+import type { Item } from '@dropzy/shared';
+import { Download, Flame, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { formatBytes } from '../../lib/format';
+import { formatBytes, isMac } from '../../lib/format';
 import { startPicker } from '../../lib/sink';
 import type { Transfer } from '../../lib/space';
 import { t } from '../../strings/en';
 import { useApp, useSpace } from './context';
 import { FileItem } from './FileItem';
+import { Keys } from './Keys';
+import { matches } from './SearchBar';
 
 export type FileRow = { id: string; item?: Item; transfer?: Transfer; createdAt: number };
 
-export function FilesPanel() {
+export function FilesPanel({ query }: { query: string }) {
   const space = useSpace();
+  const mode = useApp((s) => s.mode);
   const items = useApp((s) => s.items);
   const hidden = useApp((s) => s.hidden);
   const transfers = useApp((s) => s.transfers);
   const uploads = useApp((s) => s.space?.uploads ?? 'off');
   const burn = useApp((s) => s.burn);
   const plain = useApp((s) => s.plain);
-  const [query, setQuery] = useState('');
   const onFiles = useCallback((f: File[]) => space.sendFiles(f), [space]);
 
   const files = items.filter((i) => i.type === 'file' && !hidden.includes(i.id));
@@ -29,13 +31,9 @@ export function FilesPanel() {
   }
   rows.sort((a, b) => b.createdAt - a.createdAt);
 
-  const q = query.trim().toLowerCase();
-  const shown = q
-    ? rows.filter((r) => {
-        const name = (r.item ? space.displayName(r.item) : r.transfer?.name) ?? '';
-        return name.toLowerCase().includes(q) || r.item?.code?.toLowerCase() === q;
-      })
-    : rows;
+  const shown = rows.filter((r) =>
+    matches(query, r.item ? space.displayName(r.item) : r.transfer?.name, r.item?.code, r.item?.from.name ?? r.transfer?.peer),
+  );
   const zippable = space.zippable(files);
   void plain; // re-render when decrypted names arrive
 
@@ -44,15 +42,15 @@ export function FilesPanel() {
   const hint = uploads === 'on' ? (direct ? t.files.hintBoth(up) : t.files.hintUploadOnly(up)) : t.files.hintDirectOnly;
 
   return (
-    <section className="card flex flex-col" aria-labelledby="files-title">
-      <header className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-night-line">
-        <h2 id="files-title" className="font-semibold text-slate-900 dark:text-white">
-          {t.files.title}
-        </h2>
+    <section className="flex min-w-0 flex-col gap-4 p-4 sm:p-6" aria-labelledby="files-title">
+      <header className="flex min-h-9 items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <h2 id="files-title" className="font-semibold text-slate-900 dark:text-white">
+            {t.files.title}
+          </h2>
+          <Keys keys={[isMac() ? '⌘' : 'Ctrl', 'V']} />
+        </div>
         <div className="flex items-center gap-2">
-          <span className="hidden text-xs text-slate-500 sm:inline">
-            <kbd>Ctrl</kbd> + <kbd>V</kbd>
-          </span>
           {zippable.length >= 2 && (
             <button
               type="button"
@@ -66,49 +64,33 @@ export function FilesPanel() {
               {t.files.downloadAll}
             </button>
           )}
+          {rows.length > 0 && <span className="text-sm text-slate-500 dark:text-slate-400">{t.files.count(rows.length)}</span>}
         </div>
       </header>
-      <div className="flex flex-col gap-3 p-4">
-        <DropZone hint={hint} onFiles={onFiles} />
-        {uploads === 'on' && (
-          <label className="chip cursor-pointer self-start py-1.5">
-            <input
-              type="checkbox"
-              className="size-4 accent-accent"
-              checked={burn}
-              onChange={(e) => space.store.set({ burn: e.target.checked })}
-            />
-            <Flame size={14} aria-hidden />
-            {t.files.burn}
-          </label>
-        )}
-        {rows.length > SEARCH_THRESHOLD && (
-          <label className="relative">
-            <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" aria-hidden />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t.files.search}
-              aria-label={t.files.search}
-              className="input pl-9"
-            />
-          </label>
-        )}
-        {rows.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            {t.files.empty}
-          </p>
-        ) : shown.length === 0 ? (
-          <p className="px-1 text-sm text-slate-500">{t.files.noMatches}</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {shown.map((r) => (
-              <FileItem key={r.id} row={r} />
-            ))}
-          </ul>
-        )}
-      </div>
+      <DropZone hint={hint} onFiles={onFiles} />
+      {uploads === 'on' && (
+        <label className="chip cursor-pointer self-start py-1.5">
+          <input
+            type="checkbox"
+            className="size-4 accent-accent"
+            checked={burn}
+            onChange={(e) => space.store.set({ burn: e.target.checked })}
+          />
+          <Flame size={14} aria-hidden />
+          {t.files.burn}
+        </label>
+      )}
+      {rows.length === 0 ? (
+        <p className="px-1 text-sm text-slate-500 dark:text-slate-400">{t.files.empty[mode]}</p>
+      ) : shown.length === 0 ? (
+        <p className="px-1 text-sm text-slate-500 dark:text-slate-400">{t.files.noMatches}</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {shown.map((r) => (
+            <FileItem key={r.id} row={r} />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
@@ -159,15 +141,15 @@ function DropZone({ hint, onFiles }: { hint: string; onFiles: (files: File[]) =>
 
   return (
     <>
-      <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 px-4 py-6 text-center dark:border-slate-700">
-        <span className="inline-flex size-11 items-center justify-center rounded-full bg-accent-soft text-accent-strong dark:bg-accent dark:text-accent-fg">
+      <div className="flex flex-col items-center gap-2.5 rounded-2xl border-2 border-dashed border-slate-200 px-4 py-6 text-center transition-colors hover:border-accent/60 dark:border-slate-700">
+        <span className="inline-flex size-12 items-center justify-center rounded-full bg-accent-soft text-accent-ink">
           <Upload size={20} aria-hidden />
         </span>
         <p className="font-medium text-slate-800 dark:text-slate-100">
           <span className="hidden sm:inline">{t.files.drop}</span>
           <span className="sm:hidden">{t.files.tap}</span>
         </p>
-        <button type="button" className="btn-primary" onClick={() => input.current?.click()}>
+        <button type="button" className="btn-secondary" onClick={() => input.current?.click()}>
           {t.files.choose}
         </button>
         <p className="text-xs text-slate-500 dark:text-slate-400">{hint}</p>

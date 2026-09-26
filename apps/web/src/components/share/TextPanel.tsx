@@ -5,13 +5,18 @@ import { session, setSession } from '../../lib/device';
 import { isMac } from '../../lib/format';
 import { t } from '../../strings/en';
 import { useApp, useSpace } from './context';
+import { Keys } from './Keys';
+import { matches } from './SearchBar';
 import { TextItem } from './TextItem';
 
-export function TextPanel() {
+export function TextPanel({ query }: { query: string }) {
   const space = useSpace();
+  const mode = useApp((s) => s.mode);
   const items = useApp((s) => s.items);
   const hidden = useApp((s) => s.hidden);
+  useApp((s) => s.plain); // re-filter when decrypted text arrives
   const texts = items.filter((i) => i.type === 'text' && !hidden.includes(i.id));
+  const shown = texts.filter((i) => matches(query, space.textOf(i), i.code, i.from.name));
   const draftKey = `dz-draft:${space.mode}:${space.token ?? 'wifi'}`;
   const [draft, setDraft] = useState(() => session(draftKey) ?? '');
   const [sending, setSending] = useState(false);
@@ -68,26 +73,19 @@ export function TextPanel() {
   };
 
   return (
-    <section className="card flex flex-col" aria-labelledby="text-title">
-      <header className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-night-line">
-        <h2 id="text-title" className="font-semibold text-slate-900 dark:text-white">
-          {t.text.title}
-        </h2>
-        <div className="flex gap-1">
-          <button type="button" className="btn-ghost min-h-9 px-2.5" onClick={pasteAndSend}>
-            <ClipboardPaste size={16} aria-hidden />
-            <span className="hidden sm:inline">{t.text.pasteSend}</span>
-            <span className="sr-only sm:hidden">{t.text.pasteSend}</span>
-          </button>
-          <button type="button" className="btn-ghost min-h-9 px-2.5" onClick={() => space.copyLatest()}>
-            <ClipboardCopy size={16} aria-hidden />
-            <span className="hidden sm:inline">{t.text.copyLatest}</span>
-            <span className="sr-only sm:hidden">{t.text.copyLatest}</span>
-          </button>
+    <section className="flex min-w-0 flex-col gap-4 p-4 sm:p-6" aria-labelledby="text-title">
+      <header className="flex min-h-9 items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <h2 id="text-title" className="font-semibold text-slate-900 dark:text-white">
+            {t.text.title}
+          </h2>
+          <Keys keys={[isMac() ? '⌘' : 'Ctrl', 'Enter']} />
+          <span className="hidden text-sm text-slate-500 italic sm:inline dark:text-slate-400">{t.text.toShare}</span>
         </div>
+        {texts.length > 0 && <span className="text-sm text-slate-500 dark:text-slate-400">{t.text.count(texts.length)}</span>}
       </header>
       <form
-        className="flex flex-col gap-2 p-4"
+        className="flex flex-col gap-3"
         onSubmit={(e) => {
           e.preventDefault();
           share();
@@ -107,14 +105,23 @@ export function TextPanel() {
           aria-label={t.text.placeholder}
           maxLength={TEXT_MAX}
           rows={4}
-          className="input min-h-28 resize-y"
+          className="input min-h-32 resize-y"
         />
-        <div className="flex items-center justify-between gap-2">
-          <span className="hidden text-xs text-slate-500 sm:inline">
-            <kbd>{isMac() ? '⌘' : 'Ctrl'}</kbd> + <kbd>Enter</kbd>
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex gap-1">
+            <button type="button" className="btn-ghost min-h-10 px-2.5" onClick={pasteAndSend} title={t.text.pasteSend}>
+              <ClipboardPaste size={16} aria-hidden />
+              <span className="hidden sm:inline">{t.text.pasteSend}</span>
+              <span className="sr-only sm:hidden">{t.text.pasteSend}</span>
+            </button>
+            <button type="button" className="btn-ghost min-h-10 px-2.5" onClick={() => space.copyLatest()} title={t.text.copyLatest}>
+              <ClipboardCopy size={16} aria-hidden />
+              <span className="hidden sm:inline">{t.text.copyLatest}</span>
+              <span className="sr-only sm:hidden">{t.text.copyLatest}</span>
+            </button>
+          </div>
           <div className="ml-auto flex gap-2">
-            <button type="button" className="btn-ghost" onClick={() => setDraft('')} disabled={!draft}>
+            <button type="button" className="btn-secondary" onClick={() => setDraft('')} disabled={!draft}>
               {t.text.clear}
             </button>
             <button type="submit" className="btn-primary" disabled={!draft.trim() || sending}>
@@ -124,19 +131,17 @@ export function TextPanel() {
           </div>
         </div>
       </form>
-      <div className="flex flex-col gap-2 px-4 pb-4">
-        {texts.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            {t.text.empty}
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {texts.map((i) => (
-              <TextItem key={i.id} item={i} />
-            ))}
-          </ul>
-        )}
-      </div>
+      {texts.length === 0 ? (
+        <p className="px-1 text-sm text-slate-500 dark:text-slate-400">{t.text.empty[mode]}</p>
+      ) : shown.length === 0 ? (
+        <p className="px-1 text-sm text-slate-500 dark:text-slate-400">{t.text.noMatches}</p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {shown.map((i) => (
+            <TextItem key={i.id} item={i} />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

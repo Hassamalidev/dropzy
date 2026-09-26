@@ -16,6 +16,7 @@ import {
   TEXT_MAX,
   type TextAddAck,
   UNDO_MS,
+  WIFI_ITEM_TTL,
   type UploadInitAck,
   b64url,
   formatBytes,
@@ -27,7 +28,7 @@ import { copyText } from './clipboard';
 import { decryptStream, encryptedSource, fileKeys, openMeta, openThumb, sealMeta, sealThumb } from './crypto/files';
 import { decryptText, encryptText, itemRoot } from './crypto/keys';
 import { deleteToken, deviceId, deviceName, deviceType, isIOS, saveDeleteToken, session, setDeviceName, setSession } from './device';
-import { nextUtcMidnight } from './format';
+import { duration, nextUtcMidnight } from './format';
 import type { Direct } from './direct';
 import { cleanTmp, clickLink, hasOpfs, openSink, pipeTo, readWithProgress, saveBlob, type startPicker } from './sink';
 import { type Outgoing, RequestError, SpaceSocket, type Terminal } from './socket';
@@ -326,6 +327,13 @@ export class Space {
     this.store.set((s) => ({ toasts: s.toasts.filter((x) => x.id !== id) }));
   }
 
+  /** "Shared — expires in 2 h" after something you added lands (Wi-Fi items live 2 h; others end with the share). */
+  sharedToast() {
+    const now = Date.now();
+    const end = this.mode === 'wifi' ? now + WIFI_ITEM_TTL : this.store.get().space?.expiresAt;
+    if (end) this.toast(t.text.shared(duration(end - now)));
+  }
+
   // ───────────────────────── text ─────────────────────────
 
   private async decrypt(item: Item) {
@@ -379,6 +387,7 @@ export class Space {
       const body = this.e2ee && this.key ? await encryptText(this.key, cid, text) : text;
       const ack = await this.socket.request<TextAddAck>({ t: 'text.add', cid, body });
       if (ack.deleteToken) saveDeleteToken(ack.id, ack.deleteToken, Date.now() + 2 * 3600_000);
+      this.sharedToast();
       return true;
     } catch (e) {
       this.toast(this.errorText(e));
@@ -541,6 +550,7 @@ export class Space {
         onProgress: (loaded) => this.progress(cid, loaded),
       });
       this.localFiles.set(cid, file);
+      if (!this.store.get().burn) this.sharedToast();
     } catch (e) {
       if (started) void this.socket.request({ t: 'upload.abort', id: cid }).catch(() => {});
       if (e instanceof UploadCancelled) this.toast(t.item.cancelled);

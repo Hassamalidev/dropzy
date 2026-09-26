@@ -6,15 +6,17 @@
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji";
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  /* Three colors only: white, black and orange #FF5A1F. Solid, no effects. */
+  /* White, black and orange #FF5A1F, with a pale orange tint for soft states. Solid, no effects. */
   --color-brand: #ff5a1f;
   --color-accent: #ff5a1f; /* fills: buttons, logo, active tab, dots */
   --color-accent-strong: #0a0a0a; /* link text by day: black (orange on white is too faint) */
   --color-accent-hover: #e64a12;
-  --color-accent-soft: #ff5a1f;
+  --color-accent-soft: #fff0e9; /* pale tint: active tab, icon circles, info toasts */
+  --color-accent-ink: #c2410c; /* orange text that stays readable on white and on the tint */
   --color-accent-fg: #0a0a0a; /* black text on orange */
   --color-live: #ff5a1f;
   --color-ink: #0a0a0a;
+  --color-canvas: #f6f6f6; /* page background behind white cards */
 
   /* Neutral grays between white and black, for borders and secondary text. */
   --color-white: #ffffff;
@@ -45,12 +47,14 @@
     --color-accent: #ff5a1f;
     --color-accent-strong: #ff5a1f; /* orange links read well on black */
     --color-accent-hover: #ff7a47;
-    --color-accent-soft: #ff5a1f;
+    --color-accent-soft: #2b150c;
+    --color-accent-ink: #ff7a47;
     --color-accent-fg: #0a0a0a;
     --color-live: #ff5a1f;
+    --color-canvas: #0a0a0a;
   }
   body {
-    @apply min-h-dvh bg-white font-sans text-slate-800 antialiased dark:bg-night dark:text-slate-200;
+    @apply min-h-dvh bg-canvas font-sans text-slate-800 antialiased dark:bg-night dark:text-slate-200;
   }
   :focus-visible {
     outline: 2px solid var(--color-brand);

@@ -16,7 +16,7 @@ export function DevicesBar() {
 
   if (!Array.isArray(peers)) {
     return (
-      <div className="card flex items-center gap-2 px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
+      <div className="flex min-h-10 items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
         <span className="size-2 rounded-full bg-live" aria-hidden />
         {t.devices.busyCount(peers.count)}
       </div>
@@ -29,9 +29,9 @@ export function DevicesBar() {
   const extra = others.length - shown.length;
 
   return (
-    <section aria-label={t.devices.label} className="card flex flex-wrap items-center gap-2 px-3 py-2.5">
+    <section aria-label={t.devices.label} className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
       <h2 className="sr-only">{t.devices.label}</h2>
-      <span className="mr-1 ml-1 flex items-center gap-2 text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
+      <span className="mr-1 flex items-center gap-2 text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400">
         <span className="size-2 rounded-full bg-live" aria-hidden />
         {t.devices.label}
       </span>
@@ -40,7 +40,7 @@ export function DevicesBar() {
           type="button"
           onClick={() => setRenaming(true)}
           title={t.devices.tapToRename}
-          className="group inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full bg-accent py-1 pr-3 pl-1.5 text-sm text-accent-fg"
+          className="group inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full border border-accent/50 bg-accent-soft py-1 pr-3 pl-1.5 text-sm text-slate-900 dark:text-white"
         >
           <Avatar name={myName} />
           <span className="font-medium">{myName}</span>
@@ -78,7 +78,7 @@ export function DevicesBar() {
 
 function Avatar({ name }: { name: string }) {
   return (
-    <span className="inline-flex size-7 items-center justify-center rounded-full bg-white text-base dark:bg-slate-800" aria-hidden>
+    <span className="inline-flex size-7 items-center justify-center rounded-full bg-slate-100 text-base dark:bg-slate-800" aria-hidden>
       {emojiFor(name)}
     </span>
   );
@@ -86,7 +86,7 @@ function Avatar({ name }: { name: string }) {
 
 function PeerChip({ peer }: { peer: Peer }) {
   return (
-    <span className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-200 py-1 pr-3 pl-1.5 text-sm dark:border-slate-700">
+    <span className="inline-flex min-h-10 items-center gap-2 rounded-full border border-slate-200 bg-white py-1 pr-3 pl-1.5 text-sm dark:border-slate-700 dark:bg-night-card">
       <Avatar name={peer.name} />
       <span className="font-medium">{peer.name}</span>
       <span className="text-slate-500 dark:text-slate-400">· {DEVICE_LABEL[peer.type]}</span>

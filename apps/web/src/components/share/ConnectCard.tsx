@@ -1,45 +1,25 @@
-import { Copy, Link2, Smartphone } from 'lucide-react';
-import { useState } from 'react';
+import { Copy, Link2 } from 'lucide-react';
 import { copyText } from '../../lib/clipboard';
 import { t } from '../../strings/en';
 import { useApp, useSpace } from './context';
-import { Dialog, Qr } from './Dialogs';
+import { Qr } from './Dialogs';
 
 /**
- * Private and Room: the link/QR card while you're alone; once someone else is here it collapses
- * to a "Connect a device" button. Wi-Fi Share has no card — devices on the network appear by themselves.
+ * Private and Room: the link/QR card while you're alone. Once someone else is here it goes away —
+ * the hero's "Open on another device" button shows the same thing. Wi-Fi Share has no card.
  */
 export function ConnectCard() {
   const mode = useApp((s) => s.mode);
   const alone = useApp((s) => (Array.isArray(s.peers) ? s.peers.filter((p) => p.peerId !== s.peerId).length === 0 : s.peers.count <= 1));
-  const [dialog, setDialog] = useState(false);
-
-  if (mode === 'wifi') return null;
-
-  if (alone) {
-    return (
-      <section className="card p-5 sm:p-6" aria-live="polite">
-        <LinkConnect />
-      </section>
-    );
-  }
-
+  if (mode === 'wifi' || !alone) return null;
   return (
-    <div className="flex justify-end">
-      <button type="button" className="btn-secondary" onClick={() => setDialog(true)}>
-        <Smartphone size={16} aria-hidden />
-        {t.connect.button}
-      </button>
-      {dialog && (
-        <Dialog open onClose={() => setDialog(false)} title={t.connect.button} wide>
-          <LinkConnect />
-        </Dialog>
-      )}
-    </div>
+    <section className="card p-5 sm:p-6" aria-live="polite">
+      <LinkConnect />
+    </section>
   );
 }
 
-function LinkConnect() {
+export function LinkConnect() {
   const space = useSpace();
   const mode = useApp((s) => s.mode);
   const code = useApp((s) => s.space?.code);

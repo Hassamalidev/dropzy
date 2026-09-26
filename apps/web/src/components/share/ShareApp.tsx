@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useState } from 'react';
 import { keyFromHash } from '../../lib/crypto/keys';
 import { nextUtcMidnight } from '../../lib/format';
 import { initPasteShortcut } from '../../lib/shortcuts';
@@ -13,6 +13,7 @@ import { DevicesBar } from './DevicesBar';
 import { FilesPanel } from './FilesPanel';
 import { Hero } from './Hero';
 import { InfoRow } from './InfoRow';
+import { SearchBar } from './SearchBar';
 import { StatusCard } from './StatusCard';
 import { TextPanel } from './TextPanel';
 import { Toasts } from './Toasts';
@@ -50,6 +51,9 @@ export default function ShareApp({ mode }: { mode: Mode }) {
 function Screen({ mode }: { mode: Mode }) {
   const conn = useApp((s) => s.conn);
   const everOpen = useApp((s) => s.everOpen);
+  const hasItems = useApp((s) => s.items.length > 0 || Object.keys(s.transfers).length > 0 || !!s.space?.busy);
+  const [query, setQuery] = useState('');
+  const q = useDeferredValue(query);
 
   if (conn === 'missing_key') return <EndState text={t.moments.missingKey} mode={mode} />;
   if (conn === 'ended') return <EndState text={t.moments.ended} mode={mode} />;
@@ -69,13 +73,16 @@ function Screen({ mode }: { mode: Mode }) {
       ) : (
         <div className="flex flex-col gap-4">
           <ExpiryBanner />
-          <DevicesBar />
           <BusyBanner />
           <StatusCard />
           <ConnectCard />
-          <div className="grid items-start gap-4 md:grid-cols-2">
-            <FilesPanel />
-            <TextPanel />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <DevicesBar />
+            {(hasItems || query) && <SearchBar query={query} onQuery={setQuery} />}
+          </div>
+          <div className="card grid divide-y divide-slate-200 md:grid-cols-2 md:divide-x md:divide-y-0 dark:divide-night-line">
+            <FilesPanel query={q} />
+            <TextPanel query={q} />
           </div>
           <InfoRow mode={mode} />
         </div>

@@ -1,12 +1,13 @@
-import { type Item, TEXT_QR_MAX } from '@dropzy/shared';
+import { EXPIRY_WARNING, type Item, TEXT_QR_MAX } from '@dropzy/shared';
 import { Check, Copy, Lock, QrCode, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { copyText } from '../../lib/clipboard';
-import { ago } from '../../lib/format';
+import { ago, duration } from '../../lib/format';
 import { Linkified } from '../../lib/linkify';
 import { t } from '../../strings/en';
 import { useApp, useSpace } from './context';
 import { Dialog, Qr } from './Dialogs';
+import { Code } from './FileItem';
 
 const MAX_LINES = 8;
 
@@ -20,12 +21,50 @@ export function TextItem({ item }: { item: Item }) {
   const [qr, setQr] = useState(false);
 
   const long = !!text && (text.split('\n').length > MAX_LINES || text.length > 700);
-  const from = item.mine ? t.item.you : item.from.name;
+  const soon = item.expiresAt - now <= EXPIRY_WARNING;
 
   return (
-    <li className="group rounded-xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700/70 dark:bg-slate-900/40">
+    <li className="group rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700/70 dark:bg-slate-900/40">
+      <div className="flex items-center justify-between gap-2">
+        <p className="flex min-w-0 items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+          {item.e2ee && <Lock size={12} className="shrink-0" aria-label={t.item.encrypted} />}
+          {item.code && <Code code={item.code} />}
+          <span className={`truncate ${soon ? 'font-medium text-accent-ink' : ''}`}>{t.item.expiresIn(duration(item.expiresAt - now))}</span>
+          {!item.mine && <span className="hidden truncate sm:inline">· {t.item.from(item.from.name)}</span>}
+        </p>
+        <div className="flex shrink-0 items-center">
+          <span className="mr-1 text-xs text-slate-500 dark:text-slate-400">{ago(item.createdAt, now)}</span>
+          <button
+            type="button"
+            className="btn-icon size-9"
+            disabled={!text}
+            aria-label={copied ? t.text.copied : t.text.copy}
+            title={copied ? t.text.copied : t.text.copy}
+            onClick={async () => {
+              if (!text) return;
+              const ok = await copyText(text);
+              if (ok) {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              } else space.toast(t.toast.copyFailed);
+            }}
+          >
+            {copied ? <Check size={15} className="text-accent-ink" aria-hidden /> : <Copy size={15} aria-hidden />}
+          </button>
+          {text && text.length <= TEXT_QR_MAX && (
+            <button type="button" className="btn-icon size-9" onClick={() => setQr(true)} aria-label={t.text.qrTitle} title={t.text.qrTitle}>
+              <QrCode size={15} aria-hidden />
+            </button>
+          )}
+          {space.canDelete(item) && (
+            <button type="button" className="btn-icon size-9" onClick={() => space.deleteItem(item.id)} aria-label={t.item.delete} title={t.item.delete}>
+              <Trash2 size={15} aria-hidden />
+            </button>
+          )}
+        </div>
+      </div>
       <div
-        className={`text-sm leading-6 break-words whitespace-pre-wrap text-slate-800 dark:text-slate-100 ${long && !expanded ? 'line-clamp-[8]' : ''}`}
+        className={`mt-1 text-sm leading-6 break-words whitespace-pre-wrap text-slate-800 dark:text-slate-100 ${long && !expanded ? 'line-clamp-[8]' : ''}`}
       >
         {text === undefined ? (
           <span className="text-slate-500">{plain?.failed ? t.moments.generic : '…'}</span>
@@ -38,44 +77,6 @@ export function TextItem({ item }: { item: Item }) {
           {expanded ? t.text.showLess : t.text.showMore}
         </button>
       )}
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <p className="flex min-w-0 items-center gap-1.5 truncate text-xs text-slate-500 dark:text-slate-400">
-          {item.e2ee && <Lock size={12} aria-label={t.item.encrypted} />}
-          {item.code && <span className="rounded bg-slate-200/70 px-1.5 font-mono text-[11px] dark:bg-slate-700">{item.code}</span>}
-          <span className="truncate">
-            {t.item.from(from)} · {ago(item.createdAt, now)}
-          </span>
-        </p>
-        <div className="flex shrink-0 items-center">
-          <button
-            type="button"
-            className="btn-ghost min-h-9 px-2.5 text-xs"
-            disabled={!text}
-            onClick={async () => {
-              if (!text) return;
-              const ok = await copyText(text);
-              if (ok) {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              } else space.toast(t.toast.copyFailed);
-            }}
-          >
-            {copied ? <Check size={14} className="text-live" aria-hidden /> : <Copy size={14} aria-hidden />}
-            {copied ? t.text.copied : t.text.copy}
-          </button>
-          {text && text.length <= TEXT_QR_MAX && (
-            <button type="button" className="btn-ghost min-h-9 px-2.5 text-xs" onClick={() => setQr(true)}>
-              <QrCode size={14} aria-hidden />
-              {t.text.qr}
-            </button>
-          )}
-          {space.canDelete(item) && (
-            <button type="button" className="btn-icon size-9" onClick={() => space.deleteItem(item.id)} aria-label={t.item.delete}>
-              <Trash2 size={15} aria-hidden />
-            </button>
-          )}
-        </div>
-      </div>
       {qr && text && (
         <Dialog open onClose={() => setQr(false)} title={t.text.qrTitle}>
           <div className="flex justify-center">

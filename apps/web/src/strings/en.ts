@@ -47,13 +47,24 @@ export const t = {
   hero: {
     wifi: {
       title: 'Open it on both devices. That’s it.',
+      subtitle: 'Share files and text with every device on the same Wi-Fi.',
+      features: ['Finds your devices by itself', 'Direct link to a single file', 'Search codes for busy networks'],
+      active: 'Wi-Fi sharing active',
     },
     ses: {
       title: 'A private line between two devices.',
+      subtitle: 'Works across any network. Only people with the link can get in.',
+      features: ['Encrypted on your device', 'Any network, any distance', 'Extend up to 6 hours'],
+      active: 'Private share active',
     },
     room: {
       title: 'A room for your group.',
+      subtitle: 'Everyone with the 6-digit code can share files and text here.',
+      features: ['Join with a 6-digit code', 'Lock the room anytime', 'Extend up to 48 hours'],
+      active: 'Room active',
     },
+    reconnecting: 'Reconnecting…',
+    openOther: 'Open on another device',
   },
 
   // Devices bar (§6.3.2)
@@ -116,7 +127,8 @@ export const t = {
 
   // Files panel (§6.3.5)
   files: {
-    title: 'Files',
+    title: 'Share files',
+    count: (n: number) => `${n} shared`,
     drop: 'Drop files here',
     tap: 'Tap to choose files',
     choose: 'Choose files',
@@ -125,9 +137,12 @@ export const t = {
     hintUploadOnly: (up: string) => `Up to ${up} per file`,
     dropOverlay: 'Drop to share',
     burn: 'Delete after 1 download',
-    empty: 'Files you share here show up on your other devices instantly.',
-    search: 'Search by name or code',
-    noMatches: 'Nothing matches that.',
+    empty: {
+      wifi: 'Files shared on this Wi-Fi appear here.',
+      ses: 'Files shared in this private share appear here.',
+      room: 'Files shared in this room appear here.',
+    },
+    noMatches: 'No files match your search.',
     downloadAll: 'Download all',
     downloadAllSkipped: (n: number) =>
       `${n} ${n === 1 ? 'item was' : 'items were'} skipped (sent directly or one-download only).`,
@@ -148,6 +163,7 @@ export const t = {
     availableFor: (d: string) => `Available for ${d}`,
     burn: 'Deletes after 1 download',
     timeLeft: (d: string) => `${d} left`,
+    expiresIn: (d: string) => `Expires in ${d}`,
     download: 'Download',
     save: 'Save',
     saved: 'Saved',
@@ -177,7 +193,10 @@ export const t = {
 
   // Text panel (§6.3.5)
   text: {
-    title: 'Text',
+    title: 'Share text',
+    toShare: 'to share',
+    count: (n: number) => `${n} shared`,
+    shared: (d: string) => `Shared — expires in ${d}`,
     pasteSend: 'Paste & send',
     copyLatest: 'Copy latest',
     placeholder: 'Paste or type text to share…',
@@ -189,7 +208,12 @@ export const t = {
     qrTitle: 'Scan to copy this text',
     showMore: 'Show more',
     showLess: 'Show less',
-    empty: 'Text you share here shows up on your other devices instantly.',
+    empty: {
+      wifi: 'Text shared on this Wi-Fi appears here.',
+      ses: 'Text shared in this private share appears here.',
+      room: 'Text shared in this room appears here.',
+    },
+    noMatches: 'No text matches your search.',
     pasteHint: 'Press Ctrl+V (⌘V on Mac) to paste',
     nothingToCopy: 'There’s no text here yet.',
     tooLong: 'That’s too long — keep it under 50,000 characters.',
@@ -197,19 +221,39 @@ export const t = {
     shortcutMac: '⌘ + Enter to share',
   },
 
+  // Search across files and text
+  search: {
+    label: 'Search shared items',
+    placeholder: 'Search code, name or text',
+    shortcut: 'Press / to search',
+    clear: 'Clear search',
+  },
+
   // Info row (§6.3.6)
   info: {
     wifi: {
       scope: 'Everyone on this Wi-Fi can see what’s shared here.',
-      chips: ['Items last 2 hours', 'Direct when possible', 'No sign-up'],
+      chips: [
+        ['zap', 'Direct when possible'],
+        ['clock', 'Expires 2 h after adding'],
+        ['user', 'No sign-up'],
+      ],
     },
     ses: {
       scope: 'Only people with this link can get in.',
-      chips: ['End-to-end encrypted', 'Up to 6 hours', 'No sign-up'],
+      chips: [
+        ['lock', 'End-to-end encrypted'],
+        ['clock', 'Up to 6 hours'],
+        ['user', 'No sign-up'],
+      ],
     },
     room: {
       scope: 'Anyone with the code can see and change what’s here.',
-      chips: ['Up to 48 hours', 'Lock anytime', 'No sign-up'],
+      chips: [
+        ['lock', 'Lock anytime'],
+        ['clock', 'Up to 48 hours'],
+        ['user', 'No sign-up'],
+      ],
     },
   },
 
