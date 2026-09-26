@@ -17,13 +17,15 @@ import {
   type TextAddAck,
   UNDO_MS,
   type UploadInitAck,
+  b64url,
   formatBytes,
   randomId,
 } from '@dropzy/shared';
 import { t } from '../strings/en';
 import { bump, initBadge } from './badge';
 import { copyText } from './clipboard';
-import { decryptText, encryptText } from './crypto/keys';
+import { decryptStream, encryptedSource, fileKeys, openMeta, openThumb, sealMeta, sealThumb } from './crypto/files';
+import { decryptText, encryptText, itemRoot } from './crypto/keys';
 import { deleteToken, deviceId, deviceName, deviceType, isIOS, saveDeleteToken, session, setDeviceName, setSession } from './device';
 import { nextUtcMidnight } from './format';
 import type { Direct } from './direct';
@@ -338,8 +340,27 @@ export class Space {
     }
   }
 
-  /** Extension point: file metadata and thumbnails (E2EE phase). */
-  protected async decryptMore(_item: Item, _plain: Plain): Promise<void> {}
+  /** Private Share file names, types and thumbnails are sealed with the item's meta key (§10). */
+  protected async decryptMore(item: Item, plain: Plain): Promise<void> {
+    if (item.type !== 'file' || !this.key) return;
+    const { meta } = await this.itemKeys(item.id);
+    if (item.encMeta) Object.assign(plain, await openMeta(meta, item.encMeta));
+    if (item.thumb) plain.thumb = await openThumb(meta, item.thumb).catch(() => undefined);
+  }
+
+  private keyCache = new Map<string, Promise<{ root: Uint8Array<ArrayBuffer>; content: CryptoKey; meta: CryptoKey }>>();
+
+  protected itemKeys(itemId: string) {
+    let p = this.keyCache.get(itemId);
+    if (!p) {
+      p = (async () => {
+        const root = await itemRoot(this.key as Uint8Array<ArrayBuffer>, itemId);
+        return { root, ...(await fileKeys(root)) };
+      })();
+      this.keyCache.set(itemId, p);
+    }
+    return p;
+  }
 
   textOf(item: Item): string | undefined {
     return item.e2ee ? this.store.get().plain[item.id]?.body : item.body;
@@ -474,8 +495,19 @@ export class Space {
   }
 
   /** Fields and byte source for upload.init; Private Share encrypts (E2EE phase). */
-  protected async prepareUpload(_cid: string, file: File): Promise<{ fields: Partial<Extract<Outgoing, { t: 'upload.init' }>>; source: Source }> {
+  protected async prepareUpload(cid: string, file: File): Promise<{ fields: Partial<Extract<Outgoing, { t: 'upload.init' }>>; source: Source }> {
     const thumb = await makeThumb(file);
+    if (this.e2ee && this.key) {
+      // The server only ever sees sizes, times and counts (§10).
+      const { content, meta } = await this.itemKeys(cid);
+      return {
+        fields: {
+          encMeta: await sealMeta(meta, { name: file.name, mime: file.type || 'application/octet-stream' }),
+          thumb: thumb ? await sealThumb(meta, thumb) : undefined,
+        },
+        source: encryptedSource(file, cid, content),
+      };
+    }
     return {
       fields: { name: file.name, mime: file.type || 'application/octet-stream', thumb },
       source: { size: file.size, slice: async (a, b) => file.slice(a, b) },
@@ -682,9 +714,26 @@ export class Space {
     }
   }
 
-  /** Extension point: decrypting download (E2EE phase). */
-  protected async downloadEncrypted(_item: Item, _picker: ReturnType<typeof startPicker>): Promise<void> {
-    throw new RequestError('bad_request');
+  /** Fetch, decrypt and save through the best sink (§9.5). */
+  protected async downloadEncrypted(item: Item, picker: ReturnType<typeof startPicker>): Promise<void> {
+    const size = item.size ?? 0;
+    if (isIOS() && size > IOS_DIRECT_CAP) {
+      this.toast(t.moments.tooBigIphone);
+      return;
+    }
+    const name = this.displayName(item);
+    const sink = await openSink(name, picker, item.id, this.displayMime(item));
+    const body = await this.openItemStream(item);
+    const stream = body instanceof Response ? (body.body as ReadableStream<Uint8Array>) : body;
+    const file = await pipeTo(stream, sink);
+    if (file) saveBlob(file, name);
+  }
+
+  /** Decrypted bytes of an uploaded Private Share item, e.g. for Save to Photos. */
+  async fetchDecrypted(item: Item): Promise<File> {
+    const body = await this.openItemStream(item);
+    const stream = body instanceof Response ? (body.body as ReadableStream<Uint8Array>) : body;
+    return new Response(stream).blob().then((b) => new File([b], this.displayName(item), { type: this.displayMime(item) }));
   }
 
   async fileLink(item: Item): Promise<string> {
@@ -692,9 +741,10 @@ export class Space {
     return `${location.origin}/f/${ref}.${item.id}${await this.fileLinkKey(item)}`;
   }
 
-  /** Extension point: Private Share single-file links carry their own key (E2EE phase). */
-  protected async fileLinkKey(_item: Item): Promise<string> {
-    return '';
+  /** Private Share single-file links carry their own key (itemRoot), never K (§10). */
+  protected async fileLinkKey(item: Item): Promise<string> {
+    if (!item.e2ee || !this.key) return '';
+    return `#k=${b64url((await this.itemKeys(item.id)).root)}`;
   }
 
   async copyFileLink(item: Item) {
@@ -733,8 +783,10 @@ export class Space {
   /** A readable body for an uploaded item (decrypted in Private Share). */
   protected async openItemStream(item: Item): Promise<Response | ReadableStream<Uint8Array>> {
     const res = await fetch(await this.downloadUrl(item), { credentials: 'omit', referrerPolicy: 'no-referrer' });
-    if (!res.ok) throw new Error('download');
-    return res;
+    if (!res.ok || !res.body) throw new Error('download');
+    if (!item.e2ee) return res;
+    const { content } = await this.itemKeys(item.id);
+    return res.body.pipeThrough(decryptStream(item.id, content, item.size ?? 0));
   }
 
   displayName(item: Item): string {

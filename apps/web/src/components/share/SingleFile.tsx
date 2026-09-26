@@ -1,9 +1,12 @@
-import { DEVICE_LABEL, type FileMeta, isRisky } from '@dropzy/shared';
+import { DEVICE_LABEL, type FileMeta, IOS_DIRECT_CAP, isRisky } from '@dropzy/shared';
 import { Download, File, Loader2, Lock } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { HttpError, api } from '../../lib/api';
 import { duration, formatBytes, nextUtcMidnight, splitName } from '../../lib/format';
-import { clickLink } from '../../lib/sink';
+import { decryptStream, fileKeys, openMeta, openThumb } from '../../lib/crypto/files';
+import { keyFromHash } from '../../lib/crypto/keys';
+import { isIOS } from '../../lib/device';
+import { clickLink, openSink, pipeTo, saveBlob, startPicker } from '../../lib/sink';
 import { t } from '../../strings/en';
 
 // The single-file page /f/{ref} (§9.4). Grab one file without opening the rest of the share.
@@ -23,6 +26,8 @@ export default function SingleFile() {
   const [confirmRisky, setConfirmRisky] = useState(false);
   const [msg, setMsg] = useState('');
   const [now, setNow] = useState(Date.now());
+  const [key] = useState(keyFromHash); // itemRoot for Private Share links (§10)
+  const [resolved, setResolved] = useState<Resolved | null>(null);
 
   useEffect(() => {
     if (!ref) {
@@ -31,9 +36,26 @@ export default function SingleFile() {
     }
     api
       .fileMeta(ref)
-      .then((m) => {
+      .then(async (m) => {
         setMeta(m);
-        setState('ready');
+        if (!m.e2ee) {
+          setResolved({ name: m.name ?? 'file', mime: m.mime, thumb: m.thumb });
+          setState('ready');
+          return;
+        }
+        if (!key) {
+          setState('missing_key');
+          return;
+        }
+        try {
+          const keys = await fileKeys(key);
+          const info = m.encMeta ? await openMeta(keys.meta, m.encMeta) : { name: 'file', mime: '' };
+          const thumb = m.thumb ? await openThumb(keys.meta, m.thumb).catch(() => undefined) : undefined;
+          setResolved({ ...info, thumb });
+          setState('ready');
+        } catch {
+          setState('missing_key');
+        }
       })
       .catch((e) => setState(e instanceof HttpError && e.code === 'at_capacity' ? 'capacity' : e instanceof HttpError && e.code === 'not_found' ? 'gone' : 'error'));
     const id = setInterval(() => setNow(Date.now()), 30_000);
@@ -47,21 +69,37 @@ export default function SingleFile() {
       </Card>
     );
   }
-  if (state === 'gone' || !meta || !ref) return <End text={state === 'error' ? t.starting.failed : t.single.gone} />;
   if (state === 'capacity') return <End text={t.moments.atCapacity(nextUtcMidnight())} />;
-  if (meta.e2ee) return <End text={t.moments.missingKey} />;
+  if (state === 'missing_key') return <End text={t.moments.missingKey} />;
+  if (state === 'gone' || !meta || !ref || !resolved) return <End text={state === 'error' ? t.starting.failed : t.single.gone} />;
 
-  const resolved: Resolved = { name: meta.name ?? 'file', mime: meta.mime, thumb: meta.thumb };
   const [base, ext] = splitName(resolved.name);
 
   const download = async () => {
+    // Pick the save target synchronously, inside the click (§9.5).
+    const picker = meta.e2ee ? startPicker(resolved.name) : null;
     setBusy(true);
     setMsg('');
     try {
+      if (meta.e2ee && isIOS() && meta.size > IOS_DIRECT_CAP) {
+        setMsg(t.moments.tooBigIphone);
+        return;
+      }
       const { url } = await api.fileDownload(ref);
-      clickLink(url);
+      if (meta.e2ee && key) {
+        const { content } = await fileKeys(key);
+        const res = await fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer' });
+        if (!res.ok || !res.body) throw new Error('download');
+        const itemId = ref.split('.')[1];
+        const sink = await openSink(resolved.name, picker, itemId, resolved.mime);
+        const file = await pipeTo(res.body.pipeThrough(decryptStream(itemId, content, meta.size)), sink);
+        if (file) saveBlob(file, resolved.name);
+      } else {
+        clickLink(url);
+      }
       if (meta.burn) setState('gone');
     } catch (e) {
+      if ((e as Error)?.name === 'AbortError') return;
       const code = e instanceof HttpError ? e.code : '';
       setMsg(code === 'not_found' ? t.single.gone : code === 'rate_limited' ? t.moments.rateLimited : code === 'uploads_paused' ? t.moments.uploadsPaused : t.item.failed);
     } finally {
