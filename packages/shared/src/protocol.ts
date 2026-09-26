@@ -117,7 +117,7 @@ export type FindAck = { item: Item };
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ErrorCode | string };
 export type CreateSessionRes = { token: string; expiresAt: number };
 export type CreateRoomRes = { token: string; code: string; expiresAt: number };
-export type JoinRes = { kind: 'room'; token: string } | { kind: 'pass'; pass: string };
+export type JoinRes = { kind: 'room'; token: string } | { kind: 'pass'; pass: string } | { kind: 'file'; ref: string };
 export type FileMeta = {
   name?: string;
   mime?: string;

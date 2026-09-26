@@ -534,6 +534,17 @@ export class SpaceDO extends DurableObject<Env> {
     }
 
     const key = `f/${msg.cid}`;
+    // A code anyone can type on the Join page to get this file. Private Share files skip it: their
+    // key lives only in the link, so a short code couldn't open them.
+    let code = base.code;
+    if (!e2ee) {
+      try {
+        code = await this.directory().allocateFile(`${this.ref()}.${msg.cid}`, base.expiresAt as number);
+      } catch (err) {
+        await this.guard().release(stored, false);
+        throw err;
+      }
+    }
     const name = e2ee ? null : cleanName(msg.name as string);
     const mime = e2ee ? null : stripUnsafe(msg.mime || 'application/octet-stream').slice(0, 255);
     let uploadId: string | null = null;
@@ -555,7 +566,7 @@ export class SpaceDO extends DurableObject<Env> {
         VALUES (?, 'file', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploading', ?)`,
       msg.cid,
       msg.cid,
-      base.code,
+      code,
       att.deviceHash as string,
       att.name as string,
       att.type as string,
@@ -972,6 +983,12 @@ export class SpaceDO extends DurableObject<Env> {
   protected async removeItems(rows: ItemRow[], announce = true) {
     if (!rows.length) return;
     await this.dropStorage(rows);
+    for (const r of rows) {
+      if (r.type !== 'file' || !r.code || r.e2ee) continue;
+      await this.directory()
+        .releaseFile(r.code, `${this.ref()}.${r.id}`)
+        .catch(() => {}); // the code also expires by itself
+    }
     for (const r of rows) {
       this.sql.exec('DELETE FROM items WHERE id = ?', r.id);
       this.progress.delete(r.id);

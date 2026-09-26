@@ -763,9 +763,10 @@ export class Space {
     return readWithProgress(stream, item.size ?? 0, this.displayName(item), this.displayMime(item), onPct);
   }
 
-  async fileLink(item: Item): Promise<string> {
+  /** The single-file page; `autoDownload` makes it start the download on open (for QR codes). */
+  async fileLink(item: Item, { autoDownload = false } = {}): Promise<string> {
     const ref = this.store.get().space?.ref;
-    return `${location.origin}/f/${ref}.${item.id}${await this.fileLinkKey(item)}`;
+    return `${location.origin}/f/${ref}.${item.id}${autoDownload ? '?dl=1' : ''}${await this.fileLinkKey(item)}`;
   }
 
   /** Private Share single-file links carry their own key (itemRoot), never K (§10). */

@@ -5,13 +5,14 @@ import { useApp, useSpace } from './context';
 import { Qr } from './Dialogs';
 
 /**
- * Private and Room: the link/QR card while you're alone. Once someone else is here it goes away —
- * the hero's "Open on another device" button shows the same thing. Wi-Fi Share has no card.
+ * Room: the invite card while you're alone. Once someone else is here it goes away — the hero's
+ * "Open on another device" button shows the same thing. Private Share's session card already has
+ * the QR and link, and Wi-Fi Share needs no card.
  */
 export function ConnectCard() {
   const mode = useApp((s) => s.mode);
   const alone = useApp((s) => (Array.isArray(s.peers) ? s.peers.filter((p) => p.peerId !== s.peerId).length === 0 : s.peers.count <= 1));
-  if (mode === 'wifi' || !alone) return null;
+  if (mode !== 'room' || !alone) return null;
   return (
     <section className="card p-5 sm:p-6" aria-live="polite">
       <LinkConnect />

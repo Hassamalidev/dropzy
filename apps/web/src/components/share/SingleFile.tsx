@@ -1,6 +1,6 @@
 import { DEVICE_LABEL, type FileMeta, IOS_DIRECT_CAP, isRisky } from '@dropzy/shared';
 import { Download, File, Loader2, Lock } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { HttpError, api } from '../../lib/api';
 import { duration, formatBytes, nextUtcMidnight, splitName } from '../../lib/format';
 import { decryptStream, fileKeys, openMeta, openThumb } from '../../lib/crypto/files';
@@ -14,6 +14,14 @@ import { SaveToPhotos, readWithProgress } from './SaveToPhotos';
 // The single-file page /f/{ref} (§9.4). Grab one file without opening the rest of the share.
 
 export type Resolved = { name: string; mime?: string; thumb?: string };
+
+/** Opened from a QR code or a file code (?dl=1): start the download by itself, once. */
+function takeAutoDownload(): boolean {
+  const q = new URLSearchParams(location.search);
+  if (q.get('dl') !== '1') return false;
+  history.replaceState(null, '', location.pathname + location.hash);
+  return true;
+}
 
 function refFromPath(): string | null {
   const m = /^\/f\/([A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{22})\/?$/.exec(location.pathname);
@@ -31,6 +39,9 @@ export default function SingleFile() {
   const [now, setNow] = useState(Date.now());
   const [key] = useState(keyFromHash); // itemRoot for Private Share links (§10)
   const [resolved, setResolved] = useState<Resolved | null>(null);
+  const [auto] = useState(takeAutoDownload);
+  const start = useRef<(() => void) | null>(null);
+  const fired = useRef(false);
 
   useEffect(() => {
     if (!ref) {
@@ -65,6 +76,12 @@ export default function SingleFile() {
     return () => clearInterval(id);
   }, [ref]);
 
+  useEffect(() => {
+    if (!auto || state !== 'ready' || fired.current) return;
+    fired.current = true;
+    start.current?.();
+  }, [auto, state]);
+
   if (state === 'loading') {
     return (
       <Card>
@@ -78,9 +95,9 @@ export default function SingleFile() {
 
   const [base, ext] = splitName(resolved.name);
 
-  const download = async () => {
-    // Pick the save target synchronously, inside the click (§9.5).
-    const picker = meta.e2ee ? startPicker(resolved.name) : null;
+  const download = async (fromClick = true) => {
+    // Pick the save target synchronously, inside the click (§9.5). An automatic start has no click to use.
+    const picker = meta.e2ee && fromClick ? startPicker(resolved.name) : null;
     setBusy(true);
     setMsg('');
     try {
@@ -108,6 +125,11 @@ export default function SingleFile() {
     } finally {
       setBusy(false);
     }
+  };
+
+  // Risky types (.exe, …) still wait for the person to confirm.
+  start.current = () => {
+    if (!isRisky(resolved.name)) void download(false);
   };
 
   return (
@@ -139,7 +161,7 @@ export default function SingleFile() {
       {confirmRisky ? (
         <div className="flex flex-col items-center gap-2">
           <p className="text-sm text-slate-950 dark:text-accent">{t.item.risky}</p>
-          <button type="button" className="btn-primary" onClick={download}>
+          <button type="button" className="btn-primary" onClick={() => download()}>
             {t.item.riskyConfirm}
           </button>
         </div>

@@ -1,4 +1,4 @@
-import { CLOSE, type HealthRes, fromB64url, isSixDigits, isToken, randomToken, stripUnsafe } from '@dropzy/shared';
+import { CLOSE, type HealthRes, fromB64url, isSearchCode, isSixDigits, isToken, randomToken, stripUnsafe } from '@dropzy/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { type Env, allowedOrigins, flag, maxCloudBytes, storageEnabled } from './env';
@@ -163,11 +163,13 @@ app.post('/v1/join', async (c) => {
   if (!originOk(c)) return fail(c, 'forbidden', 403);
   if (await limited(c, c.env.RL_JOIN)) return fail(c, 'rate_limited', 429);
   const body = await readJson(c, JoinBody);
-  if (!body || !isSixDigits(body.code)) return fail(c, 'not_found', 404);
+  const code = body?.code.trim().toUpperCase() ?? '';
+  if (!isSixDigits(code) && !isSearchCode(code)) return fail(c, 'not_found', 404);
   try {
     const dir = c.env.DIRECTORY.get(c.env.DIRECTORY.idFromName('directory'));
-    const r = await dir.lookup(body.code);
+    const r = await dir.lookup(code);
     if (!r.ok) return fail(c, r.error, r.error === 'locked' ? 423 : 404);
+    if (r.kind === 'file') return ok(c, { kind: 'file', ref: r.ref });
     return ok(c, r.kind === 'room' ? { kind: 'room', token: r.token } : { kind: 'pass', pass: r.pass });
   } catch (err) {
     if (isCapacityError(err)) return fail(c, 'at_capacity', 503);

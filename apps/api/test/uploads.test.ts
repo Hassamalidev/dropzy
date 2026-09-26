@@ -25,6 +25,18 @@ async function upload(a: Client, size: number, extra: Record<string, unknown> = 
 }
 
 describe('uploads', () => {
+  it('gives each file a code that opens it from the Join page, until it is deleted', async () => {
+    const { a, ref } = await room();
+    const { id } = await upload(a, 10);
+    const added = await a.next((m) => m.t === 'item.added' && m.item.id === id);
+    const code = added.item.code as string;
+    expect(code).toMatch(/^[23456789A-HJ-NP-Z]{4}$/);
+    const found = await post('/v1/join', { code: code.toLowerCase() });
+    expect(found.body.data).toEqual({ kind: 'file', ref: `${ref}.${id}` });
+    expect((await a.request({ t: 'item.delete', id })).ok).toBe(true);
+    expect((await post('/v1/join', { code })).status).toBe(404);
+  });
+
   it('signs a single PUT, completes, and hands out download URLs', async () => {
     const { a, b, ref } = await room();
     const { id, init } = await upload(a, 1234);

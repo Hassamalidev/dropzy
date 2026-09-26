@@ -51,8 +51,8 @@ export const t = {
       active: 'Wi-Fi sharing active',
     },
     ses: {
-      title: 'A private line between two devices.',
-      subtitle: 'Works across any network. Only people with the link can get in.',
+      title: 'Just Between You Two',
+      subtitle: '', // the session card below says the rest
       active: 'Private share active',
     },
     room: {
@@ -159,6 +159,10 @@ export const t = {
     tapToSave: 'Tap to save',
     preparing: (pct: number) => `Getting it ready… ${pct}%`,
     copyLink: 'Copy link',
+    qr: 'QR code',
+    qrTitle: 'Scan to download',
+    orCode: 'Or enter',
+    at: (where: string) => `at ${where}`,
     delete: 'Delete',
     cancel: 'Cancel',
     more: 'More actions',
@@ -301,6 +305,12 @@ export const t = {
     button: 'Join',
     joining: 'Joining…',
     orCreate: 'No code? Create a room',
+    fileTitle: 'Got a file code?',
+    fileHint: 'Enter the 4-character code shown next to a shared file.',
+    fileLabel: 'File code',
+    filePlaceholder: 'e.g. A7KQ',
+    fileButton: 'Get file',
+    fileNotFound: 'No file with that code. It may have expired.',
   },
 
   // Single-file page (§9.4)

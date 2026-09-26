@@ -1,12 +1,12 @@
 import { EXPIRY_WARNING, type Item, isImage, isRisky, isVideo } from '@dropzy/shared';
-import { Check, Download, File, FileArchive, FileAudio, FileImage, FileText, FileVideo, Link2, Lock, Trash2, X } from 'lucide-react';
+import { Check, Download, File, FileArchive, QrCode, FileAudio, FileImage, FileText, FileVideo, Link2, Lock, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { ago, duration, formatBytes, speed, splitName } from '../../lib/format';
 import { startPicker } from '../../lib/sink';
 import type { Transfer } from '../../lib/space';
 import { t } from '../../strings/en';
 import { useApp, useSpace } from './context';
-import { Dialog } from './Dialogs';
+import { Dialog, Qr } from './Dialogs';
 import type { FileRow } from './FilesPanel';
 import { FileMenu } from './FileMenu';
 import { SaveToPhotos } from './SaveToPhotos';
@@ -23,6 +23,7 @@ export function FileItem({ row }: { row: FileRow }) {
   const [base, ext] = splitName(name);
   const [risky, setRisky] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [qr, setQr] = useState<string | null>(null);
 
   const mine = item ? item.mine : transfer?.kind !== 'recv';
   const from = mine ? t.item.you : (item?.from.name ?? transfer?.peer ?? '');
@@ -99,9 +100,20 @@ export function FileItem({ row }: { row: FileRow }) {
             <>
               <SaveToPhotos mime={mime} load={(onPct) => space.fetchFile(item, onPct)} onError={(m) => space.toast(m)} />
               {!item.burn && (
-                <button type="button" className="btn-icon size-9" onClick={() => space.copyFileLink(item)} aria-label={t.item.copyLink} title={t.item.copyLink}>
-                  <Link2 size={16} aria-hidden />
-                </button>
+                <>
+                  <button type="button" className="btn-icon size-9" onClick={() => space.copyFileLink(item)} aria-label={t.item.copyLink} title={t.item.copyLink}>
+                    <Link2 size={16} aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-icon size-9"
+                    onClick={async () => setQr(await space.fileLink(item, { autoDownload: true }))}
+                    aria-label={t.item.qr}
+                    title={t.item.qr}
+                  >
+                    <QrCode size={16} aria-hidden />
+                  </button>
+                </>
               )}
               <button
                 type="button"
@@ -145,6 +157,25 @@ export function FileItem({ row }: { row: FileRow }) {
             >
               {t.item.riskyConfirm}
             </button>
+          </div>
+        </Dialog>
+      )}
+      {qr && (
+        <Dialog open onClose={() => setQr(null)} title={t.item.qrTitle}>
+          <div className="flex flex-col items-center gap-3 text-center">
+            <Qr text={qr} size={240} label={t.item.qrTitle} />
+            <p className="max-w-full truncate text-sm font-medium text-slate-900 dark:text-white" title={name}>
+              {name}
+            </p>
+            {item?.code && !item.e2ee && (
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                {t.item.orCode}{' '}
+                <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-base font-semibold tracking-widest text-slate-900 dark:bg-slate-800 dark:text-white">
+                  {item.code}
+                </span>{' '}
+                {t.item.at(`${location.host}/join`)}
+              </p>
+            )}
           </div>
         </Dialog>
       )}
