@@ -35,10 +35,6 @@ export function deviceName(): string {
   return n;
 }
 
-export function setDeviceName(name: string) {
-  write('dz-name', name);
-}
-
 export function deviceType(): DeviceType {
   return detectDeviceType(navigator.userAgent, navigator.maxTouchPoints || 0);
 }

@@ -64,19 +64,10 @@ export const t = {
     openOther: 'Open on another device',
   },
 
-  // Devices bar (§6.3.2)
+  // Devices (§6.3.2)
   devices: {
-    label: 'Devices here',
-    you: '(you)',
-    more: (n: number) => `+${n}`,
-    busyCount: (n: number) => `${n} devices on this network`,
     arrived: (name: string, type: string) => `${name} (${type}) is here`,
-    renameTitle: 'Rename this device',
-    renameLabel: 'Device name',
-    renameHint: '1–24 characters. Others here will see it.',
-    save: 'Save',
     cancel: 'Cancel',
-    tapToRename: 'Tap to rename',
   },
 
   // Connect card (§6.3.3)
@@ -362,7 +353,6 @@ export const t = {
     codeCopied: 'Code copied',
     textCopied: 'Copied!',
     copyFailed: 'Couldn’t copy. Select the text and copy it yourself.',
-    renamed: 'Name updated.',
     dismiss: 'Dismiss',
   },
 

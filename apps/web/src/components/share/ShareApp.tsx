@@ -9,10 +9,10 @@ import { ExpiryBanner, OfflinePill } from './Banners';
 import { BusyBanner } from './BusyBanner';
 import { ConnectCard } from './ConnectCard';
 import { SpaceCtx, useApp } from './context';
-import { DevicesBar } from './DevicesBar';
 import { FilesPanel } from './FilesPanel';
 import { Hero } from './Hero';
 import { InfoRow } from './InfoRow';
+import { PassNotice } from './PassNotice';
 import { SearchBar } from './SearchBar';
 import { StatusCard } from './StatusCard';
 import { TextPanel } from './TextPanel';
@@ -76,10 +76,12 @@ function Screen({ mode }: { mode: Mode }) {
           <BusyBanner />
           <StatusCard />
           <ConnectCard />
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <DevicesBar />
-            {(hasItems || query) && <SearchBar query={query} onQuery={setQuery} />}
-          </div>
+          <PassNotice />
+          {(hasItems || query) && (
+            <div className="flex justify-end">
+              <SearchBar query={query} onQuery={setQuery} />
+            </div>
+          )}
           <div className="card grid divide-y divide-slate-200 md:grid-cols-2 md:divide-x md:divide-y-0 dark:divide-night-line">
             <FilesPanel query={q} />
             <TextPanel query={q} />

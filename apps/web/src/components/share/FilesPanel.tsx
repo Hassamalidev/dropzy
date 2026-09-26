@@ -1,6 +1,6 @@
 import type { Item } from '@dropzy/shared';
 import { Download, Flame, Upload } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { formatBytes, isMac } from '../../lib/format';
 import { startPicker } from '../../lib/sink';
 import type { Transfer } from '../../lib/space';
@@ -67,25 +67,26 @@ export function FilesPanel({ query }: { query: string }) {
           {rows.length > 0 && <span className="text-sm text-slate-500 dark:text-slate-400">{t.files.count(rows.length)}</span>}
         </div>
       </header>
-      <DropZone hint={hint} onFiles={onFiles} />
-      {uploads === 'on' && (
-        <label className="chip cursor-pointer self-start py-1.5">
-          <input
-            type="checkbox"
-            className="size-4 accent-accent"
-            checked={burn}
-            onChange={(e) => space.store.set({ burn: e.target.checked })}
-          />
-          <Flame size={14} aria-hidden />
-          {t.files.burn}
-        </label>
-      )}
+      <DropZone hint={hint} onFiles={onFiles}>
+        {uploads === 'on' && (
+          <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+            <input
+              type="checkbox"
+              className="size-3.5 accent-accent"
+              checked={burn}
+              onChange={(e) => space.store.set({ burn: e.target.checked })}
+            />
+            <Flame size={13} aria-hidden />
+            {t.files.burn}
+          </label>
+        )}
+      </DropZone>
       {rows.length === 0 ? (
         <p className="px-1 text-sm text-slate-500 dark:text-slate-400">{t.files.empty[mode]}</p>
       ) : shown.length === 0 ? (
         <p className="px-1 text-sm text-slate-500 dark:text-slate-400">{t.files.noMatches}</p>
       ) : (
-        <ul className="flex flex-col gap-2 md:-mr-2 md:max-h-[max(10rem,calc(100dvh-46rem))] md:overflow-y-auto md:pr-2">
+        <ul className="flex flex-col gap-2 md:-mr-2 md:max-h-[max(8rem,calc(100dvh-49.25rem))] md:overflow-y-auto md:pr-2">
           {shown.map((r) => (
             <FileItem key={r.id} row={r} />
           ))}
@@ -95,7 +96,7 @@ export function FilesPanel({ query }: { query: string }) {
   );
 }
 
-function DropZone({ hint, onFiles }: { hint: string; onFiles: (files: File[]) => void }) {
+function DropZone({ hint, onFiles, children }: { hint: string; onFiles: (files: File[]) => void; children?: ReactNode }) {
   const input = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
 
@@ -153,6 +154,7 @@ function DropZone({ hint, onFiles }: { hint: string; onFiles: (files: File[]) =>
           {t.files.choose}
         </button>
         <p className="text-xs text-slate-500 dark:text-slate-400">{hint}</p>
+        {children}
         <input
           ref={input}
           type="file"

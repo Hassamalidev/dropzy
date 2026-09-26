@@ -136,7 +136,7 @@ export function TextPanel({ query }: { query: string }) {
       ) : shown.length === 0 ? (
         <p className="px-1 text-sm text-slate-500 dark:text-slate-400">{t.text.noMatches}</p>
       ) : (
-        <ul className="flex flex-col gap-2 md:-mr-2 md:max-h-[max(10rem,calc(100dvh-46rem))] md:overflow-y-auto md:pr-2">
+        <ul className="flex flex-col gap-2 md:-mr-2 md:max-h-[max(8rem,calc(100dvh-49.25rem))] md:overflow-y-auto md:pr-2">
           {shown.map((i) => (
             <TextItem key={i.id} item={i} />
           ))}

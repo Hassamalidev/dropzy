@@ -27,7 +27,7 @@ import { bump, initBadge } from './badge';
 import { copyText } from './clipboard';
 import { decryptStream, encryptedSource, fileKeys, openMeta, openThumb, sealMeta, sealThumb } from './crypto/files';
 import { decryptText, encryptText, itemRoot } from './crypto/keys';
-import { deleteToken, deviceId, deviceName, deviceType, isIOS, saveDeleteToken, session, setDeviceName, setSession } from './device';
+import { deleteToken, deviceId, deviceName, deviceType, isIOS, saveDeleteToken, session, setSession } from './device';
 import { duration, nextUtcMidnight } from './format';
 import type { Direct } from './direct';
 import { cleanTmp, clickLink, hasOpfs, openSink, pipeTo, readWithProgress, saveBlob, type startPicker } from './sink';
@@ -852,18 +852,6 @@ export class Space {
     }
   }
 
-  async rename(name: string): Promise<boolean> {
-    try {
-      const r = await this.socket.request<{ name: string }>({ t: 'device.rename', name });
-      setDeviceName(r.name);
-      this.store.set((s) => ({ me: { ...s.me, name: r.name } }));
-      this.toast(t.toast.renamed);
-      return true;
-    } catch (e) {
-      this.toast(this.errorText(e));
-      return false;
-    }
-  }
 
   // ───────────────────────── Wi-Fi resilience (§7.1) ─────────────────────────
 
