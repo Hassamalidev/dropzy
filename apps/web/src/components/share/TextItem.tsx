@@ -28,7 +28,7 @@ export function TextItem({ item }: { item: Item }) {
         className={`text-sm leading-6 break-words whitespace-pre-wrap text-slate-800 dark:text-slate-100 ${long && !expanded ? 'line-clamp-[8]' : ''}`}
       >
         {text === undefined ? (
-          <span className="text-slate-400">{plain?.failed ? t.moments.generic : '…'}</span>
+          <span className="text-slate-500">{plain?.failed ? t.moments.generic : '…'}</span>
         ) : (
           <Linkified text={text} />
         )}

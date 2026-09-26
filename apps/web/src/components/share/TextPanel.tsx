@@ -110,7 +110,7 @@ export function TextPanel() {
           className="input min-h-28 resize-y"
         />
         <div className="flex items-center justify-between gap-2">
-          <span className="hidden text-xs text-slate-400 sm:inline">
+          <span className="hidden text-xs text-slate-500 sm:inline">
             <kbd>{isMac() ? '⌘' : 'Ctrl'}</kbd> + <kbd>Enter</kbd>
           </span>
           <div className="ml-auto flex gap-2">

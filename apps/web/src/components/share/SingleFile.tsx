@@ -8,6 +8,7 @@ import { keyFromHash } from '../../lib/crypto/keys';
 import { isIOS } from '../../lib/device';
 import { clickLink, openSink, pipeTo, saveBlob, startPicker } from '../../lib/sink';
 import { t } from '../../strings/en';
+import { SaveToPhotos, readWithProgress } from './SaveToPhotos';
 
 // The single-file page /f/{ref} (§9.4). Grab one file without opening the rest of the share.
 
@@ -150,6 +151,26 @@ export default function SingleFile() {
           {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Download size={16} aria-hidden />}
           {t.single.download}
         </button>
+      )}
+      {!confirmRisky && (
+        <SaveToPhotos
+          className="btn-secondary w-full max-w-xs"
+          mime={resolved.mime}
+          load={async (onPct) => {
+            const { url } = await api.fileDownload(ref);
+            const res = await fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer' });
+            if (!res.ok || !res.body) throw new Error('download');
+            let body: ReadableStream<Uint8Array> = res.body;
+            if (meta.e2ee && key) {
+              const { content } = await fileKeys(key);
+              body = body.pipeThrough(decryptStream(ref.split('.')[1], content, meta.size));
+            }
+            const f = await readWithProgress(body, meta.size, resolved.name, resolved.mime, onPct);
+            if (meta.burn) setState('gone');
+            return f;
+          }}
+          onError={setMsg}
+        />
       )}
       {msg && (
         <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">

@@ -9,6 +9,7 @@ import { useApp, useSpace } from './context';
 import { Dialog } from './Dialogs';
 import type { FileRow } from './FilesPanel';
 import { FileMenu } from './FileMenu';
+import { SaveToPhotos } from './SaveToPhotos';
 
 export function FileItem({ row }: { row: FileRow }) {
   const space = useSpace();
@@ -71,10 +72,18 @@ export function FileItem({ row }: { row: FileRow }) {
             </button>
           )}
           {!item && transfer?.kind === 'recv' && transfer.state === 'done' && (
-            <button type="button" className="btn-secondary min-h-9 px-3 text-xs" onClick={() => space.saveReceived(transfer.id)}>
-              <Download size={14} aria-hidden />
-              {transfer.saved ? t.item.saved : t.item.save}
-            </button>
+            <>
+              <button type="button" className="btn-secondary min-h-9 px-3 text-xs" onClick={() => space.saveReceived(transfer.id)}>
+                <Download size={14} aria-hidden />
+                {transfer.saved ? t.item.saved : t.item.save}
+              </button>
+              <SaveToPhotos
+                mime={mime}
+                ready={space.received.get(transfer.id)}
+                load={async () => space.received.get(transfer.id) as File}
+                onError={(m) => space.toast(m)}
+              />
+            </>
           )}
           {item && ready && (
             <>
@@ -86,6 +95,7 @@ export function FileItem({ row }: { row: FileRow }) {
                 <Download size={14} aria-hidden />
                 {t.item.download}
               </button>
+              <SaveToPhotos mime={mime} load={(onPct) => space.fetchFile(item, onPct)} onError={(m) => space.toast(m)} />
               {!item.burn && (
                 <button type="button" className="btn-ghost min-h-9 px-2.5 text-xs" onClick={() => space.copyFileLink(item)}>
                   <Link2 size={14} aria-hidden />

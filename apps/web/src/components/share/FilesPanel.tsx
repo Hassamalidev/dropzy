@@ -50,7 +50,7 @@ export function FilesPanel() {
           {t.files.title}
         </h2>
         <div className="flex items-center gap-2">
-          <span className="hidden text-xs text-slate-400 sm:inline">
+          <span className="hidden text-xs text-slate-500 sm:inline">
             <kbd>Ctrl</kbd> + <kbd>V</kbd>
           </span>
           {zippable.length >= 2 && (

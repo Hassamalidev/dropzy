@@ -29,7 +29,7 @@ import { decryptText, encryptText, itemRoot } from './crypto/keys';
 import { deleteToken, deviceId, deviceName, deviceType, isIOS, saveDeleteToken, session, setDeviceName, setSession } from './device';
 import { nextUtcMidnight } from './format';
 import type { Direct } from './direct';
-import { cleanTmp, clickLink, hasOpfs, openSink, pipeTo, saveBlob, type startPicker } from './sink';
+import { cleanTmp, clickLink, hasOpfs, openSink, pipeTo, readWithProgress, saveBlob, type startPicker } from './sink';
 import { type Outgoing, RequestError, SpaceSocket, type Terminal } from './socket';
 import { makeThumb } from './thumbs';
 import { type Source, UploadCancelled, runUpload } from './upload/uploader';
@@ -729,11 +729,12 @@ export class Space {
     if (file) saveBlob(file, name);
   }
 
-  /** Decrypted bytes of an uploaded Private Share item, e.g. for Save to Photos. */
-  async fetchDecrypted(item: Item): Promise<File> {
+  /** The whole (decrypted) file in memory, e.g. for Save to Photos. */
+  async fetchFile(item: Item, onPct: (pct: number) => void): Promise<File> {
+    if (item.e2ee && isIOS() && (item.size ?? 0) > IOS_DIRECT_CAP) throw new Error('too big');
     const body = await this.openItemStream(item);
     const stream = body instanceof Response ? (body.body as ReadableStream<Uint8Array>) : body;
-    return new Response(stream).blob().then((b) => new File([b], this.displayName(item), { type: this.displayMime(item) }));
+    return readWithProgress(stream, item.size ?? 0, this.displayName(item), this.displayMime(item), onPct);
   }
 
   async fileLink(item: Item): Promise<string> {

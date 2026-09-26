@@ -173,3 +173,24 @@ export async function cleanTmp(maxAge: number) {
     }
   } catch {}
 }
+
+/** Read a response body into a File, reporting progress against a known size. */
+export async function readWithProgress(
+  stream: ReadableStream<Uint8Array>,
+  size: number,
+  name: string,
+  type: string | undefined,
+  onPct: (pct: number) => void,
+): Promise<File> {
+  const reader = stream.getReader();
+  const parts: Uint8Array<ArrayBuffer>[] = [];
+  let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    parts.push(value as Uint8Array<ArrayBuffer>);
+    got += value.length;
+    onPct(size ? Math.min(100, Math.floor((got / size) * 100)) : 0);
+  }
+  return new File(parts, name, { type: type || '' });
+}
