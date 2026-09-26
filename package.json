@@ -1,0 +1,22 @@
+{
+  "name": "dropzy",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @dropzy/web dev",
+    "dev:api": "pnpm --filter @dropzy/api dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1"
+  }
+}
