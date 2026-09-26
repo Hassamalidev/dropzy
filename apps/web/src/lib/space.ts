@@ -809,10 +809,14 @@ export class Space {
   }
 
   async lock(locked: boolean) {
+    const before = this.store.get().space;
+    // Flip the switch right away; the server's `space` message confirms it.
+    if (before) this.store.set({ space: { ...before, locked } });
     try {
       await this.socket.request({ t: 'room.lock', locked });
       this.toast(locked ? t.status.locked : t.status.unlocked);
     } catch (e) {
+      if (before) this.store.set((s) => ({ space: s.space && { ...s.space, locked: !locked } }));
       this.toast(this.errorText(e));
     }
   }

@@ -8,7 +8,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@astrojs/mdx": "^8.0.2",
