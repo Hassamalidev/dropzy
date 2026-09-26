@@ -6,13 +6,19 @@
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji";
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  /* White and dark orange, solid colors only. */
-  --color-accent: #c2410c; /* dark orange */
-  --color-accent-strong: #9a3412;
-  --color-accent-soft: #ffedd5;
-  --color-accent-fg: #ffffff; /* text on accent buttons */
-  --color-live: #c2410c;
-  --color-ink: #18181b;
+  /* Palette: #FFFFFF white · #FFF9C8 cream · #FECB7E peach · #F3B63A amber · #FF8A00 orange. Solid colors only. */
+  --color-cream: #fff9c8;
+  --color-peach: #fecb7e;
+  --color-amber-sun: #f3b63a;
+  --color-orange-sun: #ff8a00;
+
+  --color-accent: #ff8a00; /* fills: buttons, logo, dots */
+  --color-accent-strong: #b35f00; /* orange text on white (links, active tab) */
+  --color-accent-hover: #f3b63a;
+  --color-accent-soft: #fff9c8;
+  --color-accent-fg: #1c1917; /* text on orange: white would be unreadable */
+  --color-live: #ff8a00;
+  --color-ink: #1c1917;
 
   /* Plain neutral grays (no tint), so every slate-* utility follows them. */
   --color-white: #ffffff;
@@ -40,11 +46,12 @@
   }
   html.dark {
     color-scheme: dark;
-    --color-accent: #ea580c;
-    --color-accent-strong: #fb923c;
-    --color-accent-soft: #3b1d0c;
-    --color-accent-fg: #0f0f10;
-    --color-live: #ea580c;
+    --color-accent: #ff8a00;
+    --color-accent-strong: #fecb7e;
+    --color-accent-hover: #f3b63a;
+    --color-accent-soft: #3a2600;
+    --color-accent-fg: #1c1917;
+    --color-live: #ff8a00;
   }
   body {
     @apply min-h-dvh bg-white font-sans text-slate-800 antialiased dark:bg-night dark:text-slate-200;
@@ -78,7 +85,7 @@
   @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50;
 }
 @utility btn-primary {
-  @apply btn bg-accent text-accent-fg hover:bg-accent-strong;
+  @apply btn bg-accent text-accent-fg hover:bg-accent-hover;
 }
 @utility btn-secondary {
   @apply btn border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700;
