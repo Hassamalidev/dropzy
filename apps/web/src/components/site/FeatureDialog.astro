@@ -1,0 +1,82 @@
+---
+import { API_URL } from '../../lib/site';
+import { t } from '../../strings/en';
+import Icon from './Icon.astro';
+
+const s = { thanks: t.feature.thanks, failed: t.feature.failed, sending: t.feature.sending, send: t.feature.send };
+---
+
+<dialog
+  id="feature-dialog"
+  aria-labelledby="feature-title"
+  class="m-auto w-[min(92vw,440px)] rounded-2xl border border-slate-200 bg-white p-0 text-slate-800 shadow-xl dark:border-night-line dark:bg-night-card dark:text-slate-100"
+>
+  <form id="feature-form" class="flex flex-col gap-4 p-5">
+    <div class="flex items-center justify-between">
+      <h2 id="feature-title" class="text-lg font-semibold">{t.feature.title}</h2>
+      <button type="button" class="btn-icon -mr-2" data-close aria-label={t.feature.close}>
+        <Icon name="x" />
+      </button>
+    </div>
+    <label class="flex flex-col gap-1.5 text-sm font-medium">
+      {t.feature.prompt}
+      <textarea name="message" required maxlength="4000" rows="4" class="input resize-y"></textarea>
+    </label>
+    <label class="flex flex-col gap-1.5 text-sm font-medium">
+      {t.feature.email}
+      <input name="email" type="email" maxlength="254" autocomplete="email" class="input" />
+      <span class="text-xs font-normal text-slate-500 dark:text-slate-400">{t.feature.emailHint}</span>
+    </label>
+    <input name="website" type="text" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true" />
+    <button type="submit" class="btn-primary self-end">
+      <Icon name="send" size={16} />
+      <span>{t.feature.send}</span>
+    </button>
+  </form>
+</dialog>
+
+<script is:inline define:vars={{ api: API_URL, s }}>
+  (() => {
+    const dlg = document.getElementById('feature-dialog');
+    const form = document.getElementById('feature-form');
+    if (!dlg || !form) return;
+    let opener = null;
+    document.addEventListener('click', (e) => {
+      const trigger = e.target.closest?.('[data-feature-open]');
+      if (trigger) {
+        opener = trigger;
+        dlg.showModal();
+      }
+    });
+    dlg.addEventListener('click', (e) => {
+      if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
+    });
+    dlg.addEventListener('close', () => opener?.focus());
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('button[type=submit] span');
+      const fd = new FormData(form);
+      btn.textContent = s.sending;
+      try {
+        const res = await fetch(`${api}/v1/feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'feature',
+            message: String(fd.get('message') || ''),
+            email: String(fd.get('email') || '') || undefined,
+            website: String(fd.get('website') || ''),
+          }),
+        });
+        if (!res.ok) throw new Error();
+        form.reset();
+        dlg.close();
+        window.dzToast?.(s.thanks);
+      } catch {
+        window.dzToast?.(s.failed);
+      } finally {
+        btn.textContent = s.send;
+      }
+    });
+  })();
+</script>

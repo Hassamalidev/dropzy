@@ -1,0 +1,11 @@
+User-agent: *
+Disallow: /s/
+Disallow: /r/
+Disallow: /f/
+Disallow: /j/
+Disallow: /join
+Disallow: /private
+Disallow: /room/
+Disallow: /admin
+
+Sitemap: https://dropzy.app/sitemap-index.xml

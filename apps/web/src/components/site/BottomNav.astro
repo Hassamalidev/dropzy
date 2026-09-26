@@ -1,0 +1,48 @@
+---
+import type { NavKey } from '../../lib/site';
+import { t } from '../../strings/en';
+import Icon from './Icon.astro';
+
+interface Props {
+  active: NavKey;
+}
+const { active } = Astro.props;
+const items = [
+  { key: 'wifi', href: '/', icon: 'wifi', label: t.nav.wifi },
+  { key: 'private', href: '/private', icon: 'lock', label: t.nav.private },
+  { key: 'room', href: '/room/new', icon: 'users', label: t.nav.room },
+  { key: 'join', href: '/join', icon: 'login', label: t.nav.join },
+] as const;
+---
+
+<nav
+  aria-label={t.nav.label}
+  class="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden dark:border-night-line dark:bg-night/95"
+>
+  <ul class="grid grid-cols-4">
+    {
+      items.map((i) => (
+        <li>
+          <a
+            href={i.href}
+            aria-current={active === i.key ? 'page' : undefined}
+            class:list={[
+              'flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium',
+              active === i.key ? 'text-accent-strong dark:text-accent' : 'text-slate-500 dark:text-slate-400',
+            ]}
+          >
+            <span
+              class:list={[
+                'inline-flex h-7 w-12 items-center justify-center rounded-full',
+                active === i.key && 'bg-accent-soft dark:bg-accent/15',
+              ]}
+            >
+              <Icon name={i.icon} size={18} />
+            </span>
+            {i.label}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>

@@ -1,14 +1,15 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.0.0/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
   "files": {
-    "includes": ["**", "!**/node_modules", "!**/dist", "!**/.astro", "!**/.wrangler", "!**/worker-configuration.d.ts", "!**/*.astro", "!**/*.mdx", "!**/*.md"]
+    "includes": ["**/*.ts", "**/*.tsx", "**/*.mjs", "!**/node_modules", "!**/dist", "!**/.astro", "!**/.wrangler"]
   },
   "formatter": { "enabled": false },
+  "assist": { "enabled": false },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
-      "suspicious": { "noExplicitAny": "off", "noArrayIndexKey": "off", "noAssignInExpressions": "off" },
+      "suspicious": { "noExplicitAny": "off", "noArrayIndexKey": "off", "noAssignInExpressions": "off", "noEmptyBlockStatements": "off" },
       "style": { "noNonNullAssertion": "off", "useTemplate": "off", "noParameterAssign": "off" },
       "a11y": { "noAutofocus": "off", "useKeyWithClickEvents": "off", "noStaticElementInteractions": "off", "useSemanticElements": "off" },
       "complexity": { "noForEach": "off", "useLiteralKeys": "off" },

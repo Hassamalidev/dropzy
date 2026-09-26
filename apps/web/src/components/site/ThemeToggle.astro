@@ -1,0 +1,22 @@
+---
+import { t } from '../../strings/en';
+import Icon from './Icon.astro';
+---
+
+<button type="button" id="theme-toggle" class="btn-icon" aria-label={t.themeToggle} title={t.themeToggle}>
+  <Icon name="moon" class="dark:hidden" />
+  <Icon name="sun" class="hidden dark:block" />
+</button>
+
+<script is:inline>
+  (() => {
+    const btn = document.getElementById('theme-toggle');
+    btn?.addEventListener('click', () => {
+      const dark = document.documentElement.classList.toggle('dark');
+      try {
+        localStorage.setItem('theme', dark ? 'dark' : 'light');
+      } catch {}
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0B0F17' : '#ffffff');
+    });
+  })();
+</script>

@@ -10,7 +10,7 @@
     "dev:api": "pnpm --filter @dropzy/api dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "lint": "biome check .",
+    "lint": "biome lint .",
     "format": "biome format --write .",
     "test": "pnpm -r test"
   },

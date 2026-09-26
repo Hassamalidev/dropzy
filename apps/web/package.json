@@ -1,0 +1,38 @@
+{
+  "name": "@dropzy/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "typecheck": "astro check",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "^8.0.2",
+    "@astrojs/react": "^7.0.0",
+    "@astrojs/sitemap": "^3.7.4",
+    "@dropzy/shared": "workspace:^",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.3.5",
+    "client-zip": "^2.5.1",
+    "linkify-it": "^6.1.0",
+    "lucide-react": "^1.48.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tailwindcss": "^4.3.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@playwright/test": "^1.63.0",
+    "@types/linkify-it": "^5.0.0",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^6",
+    "vitest": "^4.1"
+  }
+}

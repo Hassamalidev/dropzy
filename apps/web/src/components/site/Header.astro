@@ -1,0 +1,50 @@
+---
+import type { NavKey } from '../../lib/site';
+import { t } from '../../strings/en';
+import Icon from './Icon.astro';
+import ThemeToggle from './ThemeToggle.astro';
+
+interface Props {
+  active: NavKey;
+}
+const { active } = Astro.props;
+const items = [
+  { key: 'wifi', href: '/', icon: 'wifi', label: t.nav.wifi },
+  { key: 'private', href: '/private', icon: 'lock', label: t.nav.private },
+  { key: 'room', href: '/room/new', icon: 'users', label: t.nav.room },
+  { key: 'join', href: '/join', icon: 'login', label: t.nav.join },
+] as const;
+---
+
+<header class="mx-auto flex max-w-[1000px] items-center justify-between gap-3 px-4 py-3 sm:py-4">
+  <a href="/" class="flex items-center gap-2 rounded-xl text-lg font-semibold text-slate-900 dark:text-white">
+    <span class="inline-flex size-9 items-center justify-center rounded-xl bg-accent text-white">
+      <Icon name="droplet" size={20} />
+    </span>
+    {t.brand}
+  </a>
+  <nav aria-label={t.nav.label} class="hidden sm:block">
+    <ul class="flex items-center gap-1">
+      {
+        items.map((i) => (
+          <li>
+            <a
+              href={i.href}
+              aria-current={active === i.key ? 'page' : undefined}
+              class:list={[
+                'inline-flex min-h-10 items-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors duration-150',
+                active === i.key
+                  ? 'bg-accent-soft text-accent-strong dark:bg-accent/15 dark:text-accent'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
+              ]}
+            >
+              <Icon name={i.icon} size={16} />
+              {i.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+  <ThemeToggle />
+</header>

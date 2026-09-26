@@ -1,0 +1,122 @@
+---
+import BottomNav from '../components/site/BottomNav.astro';
+import FeatureDialog from '../components/site/FeatureDialog.astro';
+import Footer from '../components/site/Footer.astro';
+import Header from '../components/site/Header.astro';
+import '../styles/global.css';
+import { FAVICON, type NavKey, SITE_URL } from '../lib/site';
+import { t } from '../strings/en';
+
+interface Props {
+  title: string;
+  description?: string;
+  active?: NavKey;
+  /** App shells and private pages: noindex, no canonical (§15). */
+  noindex?: boolean;
+  /** JSON-LD objects to embed. */
+  jsonLd?: unknown[];
+  ogType?: 'website' | 'article';
+}
+
+const {
+  title,
+  description = 'Move files and text between your phone and computer in the browser. No app, no account — and everything deletes itself.',
+  active = null,
+  noindex = false,
+  jsonLd = [],
+  ogType = 'website',
+} = Astro.props;
+const fullTitle = title.includes(t.brand) ? title : `${title} | ${t.brand}`;
+const canonical = new URL(Astro.url.pathname.replace(/\/$/, '') || '/', SITE_URL).href;
+const ogImage = `${SITE_URL}/og.png`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" href={FAVICON} type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    {noindex ? <meta name="robots" content="noindex, nofollow" /> : <link rel="canonical" href={canonical} />}
+    {
+      !noindex && (
+        <>
+          <meta property="og:type" content={ogType} />
+          <meta property="og:site_name" content={t.brand} />
+          <meta property="og:title" content={fullTitle} />
+          <meta property="og:description" content={description} />
+          <meta property="og:url" content={canonical} />
+          <meta property="og:image" content={ogImage} />
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content={fullTitle} />
+          <meta name="twitter:description" content={description} />
+          <meta name="twitter:image" content={ogImage} />
+        </>
+      )
+    }
+    {jsonLd.map((j) => <script is:inline type="application/ld+json" set:html={JSON.stringify(j)} />)}
+    <script is:inline>
+      (() => {
+        try {
+          const s = localStorage.getItem('theme');
+          const dark = s ? s === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+          if (dark) {
+            document.documentElement.classList.add('dark');
+            document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0B0F17');
+          }
+        } catch {}
+      })();
+    </script>
+    <slot name="head" />
+  </head>
+  <body class="pb-16 sm:pb-0">
+    <a
+      href="#main"
+      class="sr-only z-50 rounded-xl bg-accent px-4 py-2 text-white focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+      >{t.skipToContent}</a
+    >
+    <div class="border-b border-slate-200/70 bg-slate-50/80 text-xs text-slate-500 dark:border-night-line dark:bg-slate-900/40 dark:text-slate-400">
+      <div class="mx-auto flex max-w-[1000px] items-center justify-between gap-3 px-4 py-1.5">
+        <p class="truncate">{t.topBar}</p>
+        <div class="flex shrink-0 items-center gap-3">
+          <a href="/contact" class="hidden hover:text-slate-900 sm:inline dark:hover:text-white">{t.contact}</a>
+          <button type="button" data-feature-open class="cursor-pointer font-medium text-accent-strong hover:underline dark:text-accent">
+            {t.requestFeature}
+          </button>
+        </div>
+      </div>
+    </div>
+    <Header active={active} />
+    <main id="main" class="mx-auto max-w-[1000px] px-4">
+      <slot />
+    </main>
+    <Footer />
+    <BottomNav active={active} />
+    <FeatureDialog />
+    <div
+      id="site-toast"
+      role="status"
+      aria-live="polite"
+      class="pointer-events-none fixed inset-x-0 bottom-20 z-50 flex justify-center px-4 sm:inset-x-auto sm:right-6 sm:bottom-6"
+    >
+    </div>
+    <script is:inline>
+      window.dzToast = (msg) => {
+        const host = document.getElementById('site-toast');
+        if (!host) return;
+        const el = document.createElement('div');
+        el.className =
+          'pointer-events-auto rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-lg dark:bg-slate-100 dark:text-slate-900';
+        el.textContent = msg;
+        host.replaceChildren(el);
+        setTimeout(() => el.remove(), 4000);
+      };
+    </script>
+  </body>
+</html>
