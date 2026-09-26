@@ -1,10 +1,35 @@
 ---
-import Base from '../layouts/Base.astro';
+import Prose from '../layouts/Prose.astro';
+import { organization } from '../lib/seo';
 ---
 
-<Base title="About" active={null} noindex={false}>
-  <section class="card mx-auto my-10 max-w-xl p-8 text-center">
-    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">About</h1>
-    <p class="mt-2 text-slate-500 dark:text-slate-400">This page is being built.</p>
-  </section>
-</Base>
+<Prose
+  title="About Dropzy"
+  description="Why Dropzy exists: moving a file between your own devices shouldn’t need an app, an account or a cable."
+  heading="Moving a file shouldn’t be a whole process"
+>
+  <script is:inline type="application/ld+json" set:html={JSON.stringify(organization)} />
+  <p>
+    You have a photo on your phone and you need it on your laptop. Or a link on your computer that you want on your phone.
+    It should take seconds, but it usually means installing an app, signing in to something, emailing yourself, or hunting
+    for a cable.
+  </p>
+  <p>
+    Dropzy is the shortcut. Open it on both devices and they find each other. Drop in files or text and they show up on the
+    other side — straight across when they can, uploaded for a few hours when they can’t, and deleted automatically either
+    way.
+  </p>
+  <h2>What we care about</h2>
+  <ul>
+    <li><strong>Easy.</strong> Opening the page is the whole setup. One obvious next step on every screen.</li>
+    <li><strong>Free.</strong> No paid plans and no accounts. Dropzy is built to run on free tiers.</li>
+    <li><strong>Private by default.</strong> Everything is temporary, Private Share is end-to-end encrypted, there are no cookies, and we never store IP addresses.</li>
+    <li><strong>Lean.</strong> Pages load fast, even on a phone on a slow connection.</li>
+  </ul>
+  <h2>Who makes it</h2>
+  <p>
+    Dropzy is a small, independent project. We read every message and feature request — if something could be simpler,
+    <a href="/contact">tell us</a>.
+  </p>
+  <p><a href="/contact">Got feedback? Come say hi.</a></p>
+</Prose>

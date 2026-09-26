@@ -1,10 +1,65 @@
 ---
-import Base from '../layouts/Base.astro';
+import Prose from '../layouts/Prose.astro';
 ---
 
-<Base title="Privacy" active={null} noindex={false}>
-  <section class="card mx-auto my-10 max-w-xl p-8 text-center">
-    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">Privacy</h1>
-    <p class="mt-2 text-slate-500 dark:text-slate-400">This page is being built.</p>
-  </section>
-</Base>
+<Prose
+  title="Privacy"
+  description="What Dropzy stores, for how long, and who processes it. Short version: very little, not for long, and no cookies."
+  heading="Privacy"
+  updated="September 26, 2026"
+>
+  <p>
+    Short version: Dropzy keeps as little as it can, for as short a time as it can. There are no accounts, no cookies, no
+    analytics scripts, and everything you share deletes itself.
+  </p>
+
+  <h2>What we store, and for how long</h2>
+  <ul>
+    <li>
+      <strong>Shared text and uploaded files</strong> — until they expire: 2 hours per item on Wi-Fi Share, up to 6 hours in a
+      Private Share, up to 48 hours in a Room. One-download files are removed within about an hour of their first download.
+      Then the file, the text and their records are deleted. A storage rule removes anything left over after 2 days as a safety net.
+    </li>
+    <li>
+      <strong>Files sent directly</strong> travel from one browser to the other and never reach our servers.
+    </li>
+    <li>
+      <strong>Private Share</strong> is end-to-end encrypted. The key is the part of the link after <code>#</code>, which
+      browsers never send to servers. We can’t read file names, file types, text or contents — we only see sizes and times.
+    </li>
+    <li>
+      <strong>Device names</strong> (like “Blue Fox”) and the device type (e.g. “iPhone”) are shown to others in the same
+      share while you’re connected.
+    </li>
+    <li>
+      <strong>IP addresses are never stored.</strong> We turn your address into a scrambled code (a keyed hash) to group
+      devices on the same network and to limit abuse. That code is kept with items you share, only until they expire.
+    </li>
+    <li>
+      <strong>Reports and messages</strong> you send us (including an email address if you choose to leave one) are kept for up to 30 days.
+    </li>
+    <li>
+      <strong>Usage totals</strong> — counts of uploads and downloads per day, with no personal data — are kept for 7 days to keep the service within its budget.
+    </li>
+  </ul>
+
+  <h2>On your device</h2>
+  <p>
+    Dropzy uses your browser’s local storage for your theme, a random device ID, your device name and the codes that let you
+    delete your own items. It uses session storage for text drafts and Wi-Fi connection codes, and temporary browser storage for
+    files you receive directly (cleared after you save them, or after 2 hours). No cookies are set.
+  </p>
+
+  <h2>Who processes data</h2>
+  <ul>
+    <li><strong>Cloudflare</strong> runs the realtime service and stores uploaded files.</li>
+    <li><strong>Vercel</strong> serves the website pages.</li>
+  </ul>
+  <p>Both may keep standard, short-lived request logs to run and protect their networks.</p>
+
+  <h2>Your choices</h2>
+  <p>
+    You can delete your own items at any time. Clearing your browser’s site data removes everything Dropzy keeps on your device.
+    Questions? <a href="/contact">Contact us</a>.
+  </p>
+</Prose>

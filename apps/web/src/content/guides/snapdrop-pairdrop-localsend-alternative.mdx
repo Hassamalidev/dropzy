@@ -1,0 +1,74 @@
+---
+title: "A Snapdrop, PairDrop and LocalSend Alternative That Works Across Networks"
+description: "Like Snapdrop, PairDrop or LocalSend, but for devices on different networks too. Browser-based, end-to-end encrypted private links, and no app to install."
+updated: 2026-09-26
+---
+
+If you've used Snapdrop, PairDrop or LocalSend, you already know how nice it is to fling a file between your own devices without an account. They're good tools, and plenty of people should keep using them. This guide explains where Dropzy is similar, where it's different, and when you might reach for one or the other.
+
+## A fair look at the options
+
+**Snapdrop and PairDrop** run in the browser and are built mainly around devices on the same local network. Open the page, see nearby devices, send. PairDrop adds ways to pair devices so they can find each other more reliably.
+
+**LocalSend** is a free, open-source app you install on each device. It's fast and works well on a local network without any server.
+
+All three are designed first and foremost for devices that share a network. That's exactly what most people need most of the time. The gap shows up when one device is on mobile data, at a different location, or behind something like a VPN.
+
+## Where Dropzy fits
+
+Dropzy covers the same-network case and also the cases around it, all in a browser:
+
+- **[Wi-Fi Share](/)** works like the tools above: devices on the same network appear automatically. Items last 2 hours.
+- **[Private Share](/private)** connects you and one other person, or your own devices, on **different networks**, using a private link or QR code. It's end-to-end encrypted and lasts 2 hours, extendable to 6.
+- **[Rooms](/room/new)** handle groups. People join with a 6-digit code, link or QR. A room lasts 24 hours, extendable to 48, and can be locked.
+
+No install is needed on any device, which matters on work laptops, shared computers and a friend's phone.
+
+## Scenarios where "across networks" matters
+
+- Your phone is on mobile data and your laptop is on hotel Wi-Fi.
+- You want to send a file to a colleague who works from home.
+- Your iPhone uses iCloud Private Relay, or your PC is always on a VPN.
+- You're on a guest network that stops devices from seeing each other.
+- A group of people on different networks needs one shared place for a few hours.
+
+## Setting up a cross-network transfer
+
+1. On the sending device, open [Private Share](/private).
+2. It gives you a private link and a QR code.
+3. On the other device, scan the QR code or open the link. It can be on any network.
+4. Add files or text on either side. They show up on the other.
+5. If you need more time, extend the session from 2 hours up to 6.
+
+Need to send just one file? Private Share can give that file its own link, so the recipient gets exactly that item and nothing else.
+
+## How files travel
+
+When exactly two devices are online, files go **directly** from one browser to the other. They're never uploaded, and there's no fixed size limit beyond free space on the receiving device (about 1 GB in iPhone and iPad browsers).
+
+If a direct connection can't be made, which can happen on some strict networks, Dropzy falls back by itself to uploading the file for a few hours. Uploads are limited to 2 GB per file and delete themselves automatically.
+
+In Private Share, the encryption key is part of the link. The server never sees file names or contents, whichever route the file takes.
+
+## When same-network detection misses
+
+Even at home, auto-detection sometimes doesn't connect two devices. If that happens in Wi-Fi Share, open the **Connect a device** card. It shows a QR code and a 6-digit pair code to enter on [Join](/join). That links the two devices without needing to change any settings.
+
+On very busy public networks, Dropzy hides items from other people on the same network. You can still find your own item by its 4-character code.
+
+## Other small things
+
+- **Text, not just files.** Paste a note or link and send it with Ctrl+Enter (⌘+Enter on a Mac). Links become clickable, and short text can be shown as a QR code. There's a separate guide on [sharing text and links](/guides/share-text-and-links-between-phone-and-computer).
+- **Screenshots from the clipboard.** Press Ctrl+V or ⌘+V on the page to send a copied image.
+- **Save to Photos** on iPhone and iPad, so images land in the camera roll.
+- **Delete after 1 download** for files that should only be picked up once.
+
+## Which should you use?
+
+If your devices are always on the same network and you're happy installing an app, LocalSend is a solid pick. If you like the browser approach and stay on one network, Snapdrop or PairDrop will serve you well.
+
+If you often move things between networks, or you want one tool that handles one-to-one, same-Wi-Fi and group sharing without installing anything, Dropzy is worth a try.
+
+## Privacy
+
+No account, no tracking cookies, and everything expires. Direct transfers skip the server entirely, uploads are deleted automatically, and Private Share is end-to-end encrypted. Read [How it works](/how-it-works) for more.

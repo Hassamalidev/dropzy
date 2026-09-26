@@ -1,10 +1,16 @@
 ---
 import ShareApp from '../components/share/ShareApp';
 import Base from '../layouts/Base.astro';
+import { organization, webApplication } from '../lib/seo';
 import { t } from '../strings/en';
 ---
 
-<Base title="Dropzy — Send files between phone and PC, free" active={'wifi'} noindex={false}>
+<Base
+  title="Dropzy — Send files between phone and PC, free"
+  description="Move files and text between your phone and computer in the browser. Same Wi-Fi? It just works. No app, no account — and everything deletes itself."
+  active="wifi"
+  jsonLd={[webApplication, organization]}
+>
   <ShareApp client:only="react" mode="wifi">
     <div slot="fallback" class="card mt-8 flex items-center justify-center p-10 text-slate-500" role="status">{t.starting.connecting}</div>
   </ShareApp>

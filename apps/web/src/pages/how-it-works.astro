@@ -1,10 +1,154 @@
 ---
+import { getCollection } from 'astro:content';
+import Icon from '../components/site/Icon.astro';
 import Base from '../layouts/Base.astro';
+import { faqPage } from '../lib/seo';
+
+const guides = (await getCollection('guides')).sort((a, b) => a.data.title.localeCompare(b.data.title));
+
+const steps = [
+  {
+    icon: 'smartphone',
+    title: 'Open Dropzy on both devices',
+    text: 'On the same Wi-Fi, they find each other by themselves. On different networks, start a Private Share or a Room and scan the QR code.',
+  },
+  {
+    icon: 'upload',
+    title: 'Add files or text',
+    text: 'Drag and drop, tap Choose files, or paste a screenshot. Type or paste text and press Share.',
+  },
+  {
+    icon: 'download',
+    title: 'Grab them on the other device',
+    text: 'They show up instantly. Download, copy or save — and everything deletes itself when time runs out.',
+  },
+] as const;
+
+const faq = [
+  {
+    q: 'What is Dropzy?',
+    a: 'Dropzy is a free website for moving files and text between your devices — phone to PC, iPhone to Windows, Android to Mac. There is nothing to install and no account to make. Everything you share deletes itself.',
+  },
+  {
+    q: 'Is it really free?',
+    a: 'Yes. There are no paid plans and no sign-up. Dropzy runs on free hosting tiers and keeps things lean so it can stay free.',
+  },
+  {
+    q: 'What is the difference between “sent directly” and “uploaded”?',
+    a: 'When the other device is open at the same time, files usually go straight from one browser to the other and are never uploaded anywhere. When that is not possible — or in a Room, where people may join later — the file is uploaded for a few hours and then deleted automatically.',
+  },
+  {
+    q: 'How big can files be?',
+    a: 'Files sent directly have no fixed limit; it depends on free space on the receiving device (about 1 GB in iPhone and iPad browsers). Uploaded files can be up to 2 GB each.',
+  },
+  {
+    q: 'How long do things last?',
+    a: 'On Wi-Fi Share each item lasts 2 hours after it is added. A Private Share lasts 2 hours and can be extended up to 6 hours. A Room lasts 24 hours and can be extended up to 48 hours. When time runs out, everything in it is deleted.',
+  },
+  {
+    q: 'Is it encrypted?',
+    a: 'Everything travels over encrypted connections. Private Share is also end-to-end encrypted: the key lives in the link, so our servers never see file names, types or contents — only sizes and times.',
+  },
+  {
+    q: 'Who can see what I share on Wi-Fi Share?',
+    a: 'Everyone on the same network who opens Dropzy. That is great at home, but on a shared network use a Private Share. On very busy networks Dropzy hides other people’s items automatically; you can still find one by its 4-character code.',
+  },
+  {
+    q: 'My other device isn’t showing up. What now?',
+    a: 'VPNs, iCloud Private Relay or a phone on mobile data can put your devices on different networks. Use the Connect a device card: scan its QR code, or tap Join on the other device and enter the 6-digit code. On different networks, a Private Share always works.',
+  },
+  {
+    q: 'Do I need an account?',
+    a: 'No. There are no accounts and no cookies. Your device just gets a friendly name like “Blue Fox”, which you can change.',
+  },
+  {
+    q: 'What is stored, and when is it deleted?',
+    a: 'Uploaded files and shared text are kept only until they expire, then deleted automatically, along with their records. We never store IP addresses — only a scrambled version used to group devices on the same network and to stop abuse.',
+  },
+];
 ---
 
-<Base title="How it works" active={null} noindex={false}>
-  <section class="card mx-auto my-10 max-w-xl p-8 text-center">
-    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">How it works</h1>
-    <p class="mt-2 text-slate-500 dark:text-slate-400">This page is being built.</p>
+<Base
+  title="How Dropzy works — share files between phone and PC"
+  description="How to send files and text between your phone and computer in the browser: open Dropzy on both devices, add files, grab them on the other side."
+  jsonLd={[faqPage(faq)]}
+>
+  <section class="mx-auto max-w-3xl py-8 text-center">
+    <h1 class="text-3xl font-bold tracking-tight text-balance text-slate-900 sm:text-4xl dark:text-white">How Dropzy works</h1>
+    <p class="mt-4 text-lg text-pretty text-slate-600 dark:text-slate-400">
+      Dropzy moves files and text between any devices — phone, PC, iPhone, Android, Mac or tablet — right in the browser.
+      No app, no cable, no account. On the same Wi-Fi it just works; on different networks, share a link, a QR code or a
+      6-digit code. Everything deletes itself.
+    </p>
+  </section>
+
+  <ol class="grid gap-4 sm:grid-cols-3">
+    {
+      steps.map((s, i) => (
+        <li class="card p-6">
+          <span class="inline-flex size-10 items-center justify-center rounded-xl bg-accent-soft text-accent-strong dark:bg-accent/15 dark:text-accent">
+            <Icon name={s.icon} />
+          </span>
+          <h2 class="mt-4 font-semibold text-slate-900 dark:text-white">
+            {i + 1}. {s.title}
+          </h2>
+          <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">{s.text}</p>
+        </li>
+      ))
+    }
+  </ol>
+
+  <section class="card mt-10 grid gap-6 p-6 sm:grid-cols-2 sm:p-8">
+    <div>
+      <h2 class="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+        <Icon name="zap" class="text-accent" /> Sent directly
+      </h2>
+      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+        When the other device is open, files usually go straight from one browser to the other. They are never uploaded,
+        there is no fixed size limit, and you will see the speed as it goes.
+      </p>
+    </div>
+    <div>
+      <h2 class="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+        <Icon name="clock" class="text-accent" /> Uploaded for a while
+      </h2>
+      <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+        If the other device isn’t there yet — or you’re in a Room — files are uploaded (up to 2 GB each) so they can be picked up
+        later, then deleted automatically. If a direct connection fails, Dropzy uploads by itself.
+      </p>
+    </div>
+  </section>
+
+  <section class="mt-12">
+    <h2 class="text-2xl font-semibold text-slate-900 dark:text-white">Guides</h2>
+    <ul class="mt-4 grid gap-3 sm:grid-cols-2">
+      {
+        guides.map((g) => (
+          <li>
+            <a href={`/guides/${g.id}`} class="card block h-full p-5 transition-colors hover:border-accent">
+              <span class="font-medium text-slate-900 dark:text-white">{g.data.title}</span>
+              <span class="mt-1 block text-sm text-slate-600 dark:text-slate-400">{g.data.description}</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+
+  <section class="mt-12 max-w-3xl">
+    <h2 class="text-2xl font-semibold text-slate-900 dark:text-white">Questions</h2>
+    <div class="mt-4 flex flex-col gap-2">
+      {
+        faq.map((f) => (
+          <details class="card group p-0">
+            <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 font-medium text-slate-900 dark:text-white">
+              {f.q}
+              <span class="text-slate-400 transition-transform group-open:rotate-45" aria-hidden="true">+</span>
+            </summary>
+            <p class="px-5 pb-4 text-sm leading-6 text-slate-600 dark:text-slate-400">{f.a}</p>
+          </details>
+        ))
+      }
+    </div>
   </section>
 </Base>

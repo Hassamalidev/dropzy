@@ -1,0 +1,22 @@
+---
+import Base from './Base.astro';
+
+// Simple text pages (About, Privacy, Terms).
+interface Props {
+  title: string;
+  description: string;
+  heading: string;
+  updated?: string;
+}
+const { title, description, heading, updated } = Astro.props;
+---
+
+<Base title={title} description={description}>
+  <article class="mx-auto max-w-2xl py-8">
+    <h1 class="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl dark:text-white">{heading}</h1>
+    {updated && <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">Last updated {updated}</p>}
+    <div class="prose-dz mt-6">
+      <slot />
+    </div>
+  </article>
+</Base>

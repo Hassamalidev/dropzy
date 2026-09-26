@@ -1,10 +1,65 @@
 ---
 import Base from '../layouts/Base.astro';
+import { API_URL } from '../lib/site';
+import { t } from '../strings/en';
+
+const s = { thanks: t.contactForm.thanks, failed: t.feature.failed, sending: t.feature.sending, send: t.contactForm.send };
 ---
 
-<Base title="Contact" active={null} noindex={false}>
-  <section class="card mx-auto my-10 max-w-xl p-8 text-center">
-    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">Contact</h1>
-    <p class="mt-2 text-slate-500 dark:text-slate-400">This page is being built.</p>
+<Base title="Contact" description="Questions, problems or ideas? Send the Dropzy team a message.">
+  <section class="mx-auto max-w-lg py-8">
+    <h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Contact us</h1>
+    <p class="mt-2 text-slate-600 dark:text-slate-400">
+      Questions, problems, ideas, or something to report? Leave an email if you’d like a reply. To report a specific file, use
+      the Report button next to it.
+    </p>
+    <form id="contact-form" class="card mt-6 flex flex-col gap-4 p-6">
+      <label class="flex flex-col gap-1.5 text-sm font-medium">
+        {t.contactForm.message}
+        <textarea name="message" required maxlength="4000" rows="6" class="input resize-y"></textarea>
+      </label>
+      <label class="flex flex-col gap-1.5 text-sm font-medium">
+        {t.contactForm.email}
+        <input name="email" type="email" maxlength="254" autocomplete="email" class="input" />
+      </label>
+      <input name="website" type="text" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true" />
+      <button type="submit" class="btn-primary self-start">{t.contactForm.send}</button>
+      <p id="contact-status" role="status" class="text-sm text-slate-600 dark:text-slate-400"></p>
+    </form>
   </section>
 </Base>
+
+<script is:inline define:vars={{ api: API_URL, s }}>
+  (() => {
+    const form = document.getElementById('contact-form');
+    const status = document.getElementById('contact-status');
+    const btn = form.querySelector('button[type=submit]');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      btn.textContent = s.sending;
+      btn.disabled = true;
+      try {
+        const res = await fetch(`${api}/v1/feedback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'omit',
+          body: JSON.stringify({
+            type: 'contact',
+            message: String(fd.get('message') || ''),
+            email: String(fd.get('email') || '') || undefined,
+            website: String(fd.get('website') || ''),
+          }),
+        });
+        if (!res.ok) throw new Error();
+        form.reset();
+        status.textContent = s.thanks;
+      } catch {
+        status.textContent = s.failed;
+      } finally {
+        btn.textContent = s.send;
+        btn.disabled = false;
+      }
+    });
+  })();
+</script>

@@ -1,10 +1,44 @@
 ---
-import Base from '../layouts/Base.astro';
+import Prose from '../layouts/Prose.astro';
 ---
 
-<Base title="Terms" active={null} noindex={false}>
-  <section class="card mx-auto my-10 max-w-xl p-8 text-center">
-    <h1 class="text-2xl font-semibold text-slate-900 dark:text-white">Terms</h1>
-    <p class="mt-2 text-slate-500 dark:text-slate-400">This page is being built.</p>
-  </section>
-</Base>
+<Prose
+  title="Terms"
+  description="The rules for using Dropzy: share only what you have the right to share, nothing illegal or harmful, and everything is temporary."
+  heading="Terms of use"
+  updated="September 26, 2026"
+>
+  <p>By using Dropzy you agree to these terms. If you don’t agree, please don’t use it.</p>
+
+  <h2>The service</h2>
+  <p>
+    Dropzy lets you move files and text between devices. It’s free and provided “as is”, without warranties. Everything shared
+    is temporary and deleted automatically — don’t use Dropzy as your only copy of anything. Limits (like file sizes and how long
+    things last) may change, and the service may pause uploads or be unavailable at times.
+  </p>
+
+  <h2>What you may not share</h2>
+  <ul>
+    <li>Anything illegal where you or the recipient are, including child sexual abuse material.</li>
+    <li>Malware, phishing pages, or anything meant to deceive or harm people or systems.</li>
+    <li>Content that harasses, threatens or exposes someone’s private information without consent.</li>
+    <li>Content you don’t have the right to share, including material that infringes copyright.</li>
+  </ul>
+  <p>Don’t try to overload, probe or get around the service’s limits, and don’t use it for spam or bulk distribution.</p>
+
+  <h2>Reports and takedown</h2>
+  <p>
+    Every file shared by someone else has a <strong>Report</strong> button, and so does each single-file link. We review reports
+    quickly and may delete items and block uploaders without notice. For anything else — including copyright notices — use the
+    <a href="/contact">contact form</a> and include the file link.
+  </p>
+
+  <h2>Responsibility</h2>
+  <p>
+    You are responsible for what you share. Only open files from people you trust. To the extent the law allows, Dropzy isn’t
+    liable for losses arising from use of the service or from content shared by others.
+  </p>
+
+  <h2>Changes</h2>
+  <p>We may update these terms; the date at the top shows the latest version.</p>
+</Prose>

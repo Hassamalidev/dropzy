@@ -1,0 +1,44 @@
+---
+import { getCollection, render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { article } from '../../lib/seo';
+import { SITE_URL } from '../../lib/site';
+
+export async function getStaticPaths() {
+  const guides = await getCollection('guides');
+  return guides.map((g) => ({ params: { slug: g.id }, props: { guide: g } }));
+}
+
+const { guide } = Astro.props;
+const { Content } = await render(guide);
+const others = (await getCollection('guides')).filter((g) => g.id !== guide.id);
+const url = `${SITE_URL}/guides/${guide.id}`;
+---
+
+<Base
+  title={guide.data.title}
+  description={guide.data.description}
+  ogType="article"
+  jsonLd={[article({ title: guide.data.title, description: guide.data.description, url, updated: guide.data.updated })]}
+>
+  <article class="mx-auto max-w-2xl py-8">
+    <p class="text-sm text-slate-500 dark:text-slate-400">
+      <a href="/how-it-works" class="link">How it works</a> · Guide
+    </p>
+    <h1 class="mt-2 text-3xl font-bold tracking-tight text-balance text-slate-900 sm:text-4xl dark:text-white">{guide.data.title}</h1>
+    <p class="mt-3 text-lg text-slate-600 dark:text-slate-400">{guide.data.description}</p>
+    <div class="prose-dz mt-6">
+      <Content />
+    </div>
+    <div class="card mt-10 flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+      <p class="font-medium text-slate-900 dark:text-white">Try it now — open Dropzy on both devices.</p>
+      <a href="/" class="btn-primary">Open Dropzy</a>
+    </div>
+    <nav class="mt-10" aria-label="More guides">
+      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">More guides</h2>
+      <ul class="mt-3 flex flex-col gap-2">
+        {others.map((g) => <li><a class="link" href={`/guides/${g.id}`}>{g.data.title}</a></li>)}
+      </ul>
+    </nav>
+  </article>
+</Base>
