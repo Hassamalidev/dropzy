@@ -26,7 +26,7 @@ export function Toasts() {
             {x.action && (
               <button
                 type="button"
-                className="min-h-9 cursor-pointer rounded-lg px-3 font-semibold text-sky-300 hover:bg-white/10 dark:text-accent-strong dark:hover:bg-slate-900/10"
+                className="min-h-9 cursor-pointer rounded-lg px-3 font-semibold text-beige underline underline-offset-2 hover:bg-white/10 dark:text-olive dark:hover:bg-slate-900/10"
                 onClick={() => {
                   x.action?.run();
                   space.dismiss(x.id);

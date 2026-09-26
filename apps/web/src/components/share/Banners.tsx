@@ -47,7 +47,7 @@ export function Notice({ children, tone = 'info' }: { children: React.ReactNode;
       className={
         tone === 'warn'
           ? 'flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100'
-          : 'flex items-start gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-100'
+          : 'flex items-start gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 dark:border-night-line dark:bg-night-card dark:text-slate-100'
       }
     >
       <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />

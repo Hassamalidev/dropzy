@@ -4,8 +4,8 @@
   "description": "Move files and text between your devices in the browser.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#3B9EF5",
+  "background_color": "#FDFBD4",
+  "theme_color": "#545333",
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]
