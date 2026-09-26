@@ -6,37 +6,38 @@
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji";
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  /* Palette: #FFFFFF white · #FFF9C8 cream · #FECB7E peach · #F3B63A amber · #FF8A00 orange. Solid colors only. */
-  --color-cream: #fff9c8;
-  --color-peach: #fecb7e;
-  --color-amber-sun: #f3b63a;
-  --color-orange-sun: #ff8a00;
+  /* "Tuscan sunset": #E35336 coral · #FFD3AC peach · #9988A1 mauve · #8A2B0E rust. Solid colors only. */
+  --color-coral: #e35336;
+  --color-peach: #ffd3ac;
+  --color-mauve: #9988a1;
+  --color-rust: #8a2b0e;
 
-  --color-accent: #ff8a00; /* fills: buttons, logo, dots */
-  --color-accent-strong: #b35f00; /* orange text on white (links, active tab) */
-  --color-accent-hover: #f3b63a;
-  --color-accent-soft: #fff9c8;
-  --color-accent-fg: #1c1917; /* text on orange: white would be unreadable */
-  --color-live: #ff8a00;
-  --color-ink: #1c1917;
+  --color-brand: #e35336; /* logo, dots, focus ring */
+  --color-accent: #8a2b0e; /* buttons: white text reads well on rust */
+  --color-accent-strong: #8a2b0e; /* link text on white */
+  --color-accent-hover: #6f220b;
+  --color-accent-soft: #ffd3ac;
+  --color-accent-fg: #ffffff;
+  --color-live: #e35336;
+  --color-ink: #1f1823;
 
-  /* Plain neutral grays (no tint), so every slate-* utility follows them. */
+  /* Neutrals tinted from mauve, so every slate-* utility follows the palette. */
   --color-white: #ffffff;
-  --color-slate-50: #fafafa;
-  --color-slate-100: #f4f4f5;
-  --color-slate-200: #e4e4e7;
-  --color-slate-300: #d4d4d8;
-  --color-slate-400: #a1a1aa;
-  --color-slate-500: #71717a;
-  --color-slate-600: #52525b;
-  --color-slate-700: #3f3f46;
-  --color-slate-800: #27272a;
-  --color-slate-900: #18181b;
-  --color-slate-950: #09090b;
+  --color-slate-50: #faf8fb;
+  --color-slate-100: #f3f0f5;
+  --color-slate-200: #e4dfe8;
+  --color-slate-300: #cdc4d3;
+  --color-slate-400: #9988a1;
+  --color-slate-500: #6f6078;
+  --color-slate-600: #5a4c62;
+  --color-slate-700: #463a4d;
+  --color-slate-800: #2f2634;
+  --color-slate-900: #1f1823;
+  --color-slate-950: #140f17;
 
-  --color-night: #0f0f10;
-  --color-night-card: #18181b;
-  --color-night-line: #2e2e33;
+  --color-night: #161118;
+  --color-night-card: #1f1823;
+  --color-night-line: #3a2f40;
 }
 
 @layer base {
@@ -46,18 +47,18 @@
   }
   html.dark {
     color-scheme: dark;
-    --color-accent: #ff8a00;
-    --color-accent-strong: #fecb7e;
-    --color-accent-hover: #f3b63a;
-    --color-accent-soft: #3a2600;
-    --color-accent-fg: #1c1917;
-    --color-live: #ff8a00;
+    --color-accent: #e35336; /* coral buttons with dark text at night */
+    --color-accent-strong: #ffd3ac; /* links: peach on dark */
+    --color-accent-hover: #ffd3ac;
+    --color-accent-soft: #3b1a10;
+    --color-accent-fg: #1f0d06;
+    --color-live: #e35336;
   }
   body {
     @apply min-h-dvh bg-white font-sans text-slate-800 antialiased dark:bg-night dark:text-slate-200;
   }
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-brand);
     outline-offset: 2px;
     border-radius: 6px;
   }
