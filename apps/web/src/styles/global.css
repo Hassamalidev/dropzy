@@ -6,37 +6,31 @@
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji";
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  /* "Cappuccino" palette: #D6B588 caramel · #C6C0B9 greige · #705E46 brown · #422701 espresso */
-  --color-caramel: #d6b588;
-  --color-greige: #c6c0b9;
-  --color-brown: #705e46;
-  --color-espresso: #422701;
+  /* White and dark orange, solid colors only. */
+  --color-accent: #c2410c; /* dark orange */
+  --color-accent-strong: #9a3412;
+  --color-accent-soft: #ffedd5;
+  --color-accent-fg: #ffffff; /* text on accent buttons */
+  --color-live: #c2410c;
+  --color-ink: #18181b;
 
-  /* Accent: espresso by day, caramel by night (redefined under .dark below). */
-  --color-accent: #422701;
-  --color-accent-strong: #2a1a04;
-  --color-accent-soft: #eadbc4;
-  --color-accent-fg: #fbf9f6; /* text on accent buttons */
-  --color-live: #a07b3f;
-  --color-ink: #2a1a04;
+  /* Plain neutral grays (no tint), so every slate-* utility follows them. */
+  --color-white: #ffffff;
+  --color-slate-50: #fafafa;
+  --color-slate-100: #f4f4f5;
+  --color-slate-200: #e4e4e7;
+  --color-slate-300: #d4d4d8;
+  --color-slate-400: #a1a1aa;
+  --color-slate-500: #71717a;
+  --color-slate-600: #52525b;
+  --color-slate-700: #3f3f46;
+  --color-slate-800: #27272a;
+  --color-slate-900: #18181b;
+  --color-slate-950: #09090b;
 
-  /* Neutrals re-tinted from the palette, so every slate-* utility follows it. */
-  --color-white: #fbf9f6;
-  --color-slate-50: #f6f3ef;
-  --color-slate-100: #efebe6;
-  --color-slate-200: #c6c0b9;
-  --color-slate-300: #ada59c;
-  --color-slate-400: #8e8272;
-  --color-slate-500: #705e46;
-  --color-slate-600: #5e4e39;
-  --color-slate-700: #4a3a26;
-  --color-slate-800: #34260f;
-  --color-slate-900: #2a1a04;
-  --color-slate-950: #1e1407;
-
-  --color-night: #1e1407;
-  --color-night-card: #2b1d0b;
-  --color-night-line: #4a3a26;
+  --color-night: #0f0f10;
+  --color-night-card: #18181b;
+  --color-night-line: #2e2e33;
 }
 
 @layer base {
@@ -46,14 +40,14 @@
   }
   html.dark {
     color-scheme: dark;
-    --color-accent: #d6b588;
-    --color-accent-strong: #e4cba6;
-    --color-accent-soft: #3a2a14;
-    --color-accent-fg: #2a1a04;
-    --color-live: #d6b588;
+    --color-accent: #ea580c;
+    --color-accent-strong: #fb923c;
+    --color-accent-soft: #3b1d0c;
+    --color-accent-fg: #0f0f10;
+    --color-live: #ea580c;
   }
   body {
-    @apply min-h-dvh bg-slate-100 font-sans text-slate-800 antialiased dark:bg-night dark:text-slate-200;
+    @apply min-h-dvh bg-white font-sans text-slate-800 antialiased dark:bg-night dark:text-slate-200;
   }
   :focus-visible {
     outline: 2px solid var(--color-accent);
@@ -64,7 +58,7 @@
     @apply rounded border border-slate-300 bg-slate-50 px-1.5 py-0.5 font-mono text-[11px] text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300;
   }
   dialog::backdrop {
-    background: rgb(30 20 7 / 0.6);
+    background: rgb(9 9 11 / 0.6);
   }
   @media (prefers-reduced-motion: reduce) {
     *,

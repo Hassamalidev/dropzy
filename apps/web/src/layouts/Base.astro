@@ -39,7 +39,7 @@ const ogImage = `${SITE_URL}/og.png`;
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <meta name="referrer" content="no-referrer" />
-    <meta name="theme-color" content="#efebe6" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href={FAVICON} type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icon.svg" />
@@ -68,7 +68,7 @@ const ogImage = `${SITE_URL}/og.png`;
           const dark = s ? s === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
           if (dark) {
             document.documentElement.classList.add('dark');
-            document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#1e1407');
+            document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0f0f10');
           }
         } catch {}
       })();
