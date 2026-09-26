@@ -129,7 +129,7 @@ export const t = {
     drop: 'Drop files here',
     tap: 'Tap to choose files',
     choose: 'Choose files',
-    hintBoth: (up: string) => `Direct: no size limit · Uploads: up to ${up}`,
+    hintBoth: (up: string) => `Up to ${up} per file · Bigger files go direct`,
     hintDirectOnly: 'Goes straight to devices that are here',
     hintUploadOnly: (up: string) => `Up to ${up} per file`,
     dropOverlay: 'Drop to share',
@@ -231,7 +231,7 @@ export const t = {
     wifi: {
       scope: 'Everyone on this Wi-Fi can see what’s shared here.',
       chips: [
-        ['zap', 'Direct when possible'],
+        ['zap', 'Big files go direct'],
         ['clock', 'Expires 2 h after adding'],
         ['user', 'No sign-up'],
       ],

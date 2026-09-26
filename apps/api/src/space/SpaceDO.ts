@@ -49,7 +49,7 @@ import {
 } from '@dropzy/shared';
 import { DurableObject } from 'cloudflare:workers';
 import { type Env, maxCloudBytes, num, storageEnabled } from '../env';
-import { R2 } from '../r2';
+import { type Store, makeStore } from '../r2';
 import { makePass } from '../tokens';
 import { type C2SMsg, C2SSchema } from './schema';
 
@@ -100,6 +100,7 @@ export type Att = {
   ipHash: string;
   viaPass: boolean;
   net?: string; // network id (Wi-Fi spaces), for making passes
+  origin: string; // this API's public origin, for relayed upload/download URLs
   ready: boolean;
   deviceHash?: string;
   name?: string;
@@ -138,7 +139,6 @@ export class SpaceDO extends DurableObject<Env> {
   private lastSweep = 0;
   protected progress = new Map<string, number>();
   private guardState: { v: 'on' | 'paused'; at: number } | null = null;
-  private r2Client: R2 | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -246,9 +246,9 @@ export class SpaceDO extends DurableObject<Env> {
     return this.env.GUARD.get(this.env.GUARD.idFromName('guard'));
   }
 
-  protected r2(): R2 {
-    this.r2Client ??= new R2(this.env);
-    return this.r2Client;
+  /** Signed-URL store; `origin` is this API's public origin, for relayed /v1/blob URLs. */
+  protected store(origin: string): Store {
+    return makeStore(this.env, origin);
   }
 
   /** Refresh the cost-guard status at most once a minute (§14.4). */
@@ -300,6 +300,7 @@ export class SpaceDO extends DurableObject<Env> {
     const ipHash = req.headers.get('x-dz-ip') || '';
     const viaPass = req.headers.get('x-dz-via-pass') === '1';
     const net = req.headers.get('x-dz-net') || undefined;
+    const origin = req.headers.get('x-dz-origin') || '';
 
     let s = this.space();
     if (!s && kind === 'net') s = this.ensureNet();
@@ -313,7 +314,7 @@ export class SpaceDO extends DurableObject<Env> {
     const [client, server] = [pair[0], pair[1]];
     const peerId = randomToken(9);
     this.ctx.acceptWebSocket(server, [`peer:${peerId}`]);
-    const att: Att = { peerId, ipHash, viaPass, net, ready: false, found: [], b: {}, seen: Date.now() };
+    const att: Att = { peerId, ipHash, viaPass, net, origin, ready: false, found: [], b: {}, seen: Date.now() };
     server.serializeAttachment(att);
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -486,16 +487,17 @@ export class SpaceDO extends DurableObject<Env> {
     return storedSize(row.size ?? 0, !!row.e2ee);
   }
 
-  private async uploadTargets(row: ItemRow): Promise<UploadInitAck> {
+  private async uploadTargets(att: Att, row: ItemRow): Promise<UploadInitAck> {
     const key = row.storage_key as string;
+    const store = this.store(att.origin);
     if (!row.upload_id) {
       const headers = this.headersFor(row);
-      return { id: row.id, mode: 'single', url: await this.r2().presignPut(key, headers, SIGNED_PUT_TTL), headers };
+      return { id: row.id, mode: 'single', url: await store.presignPut(key, headers, SIGNED_PUT_TTL, this.stored(row)), headers };
     }
     const count = partCount(this.stored(row), row.part_size as number);
     const urls: Record<number, string> = {};
     for (let n = 1; n <= Math.min(URL_BATCH, count); n++) {
-      urls[n] = await this.r2().presignPart(key, row.upload_id, n, SIGNED_PUT_TTL);
+      urls[n] = await store.presignPart(key, row.upload_id, n, SIGNED_PUT_TTL, row.part_size as number);
     }
     return { id: row.id, mode: 'multipart', partSize: row.part_size as number, partCount: count, urls };
   }
@@ -521,7 +523,7 @@ export class SpaceDO extends DurableObject<Env> {
     if (base.existing) {
       // A retried init: hand back fresh targets for the same upload.
       if (base.existing.status !== 'uploading' || base.existing.type !== 'file') throw new ApiError('bad_request');
-      return this.uploadTargets(base.existing);
+      return this.uploadTargets(att, base.existing);
     }
 
     const stored = storedSize(msg.size, e2ee);
@@ -539,7 +541,7 @@ export class SpaceDO extends DurableObject<Env> {
     try {
       if (!isSinglePut(stored)) {
         const h = this.headersFor({ e2ee: e2ee ? 1 : 0, mime, name });
-        uploadId = await this.r2().createMultipart(key, h['content-type'], h['content-disposition']);
+        uploadId = await this.store(att.origin).createMultipart(key, h['content-type'], h['content-disposition']);
         partSize = partSizeFor(stored, e2ee);
       }
     } catch (err) {
@@ -575,7 +577,7 @@ export class SpaceDO extends DurableObject<Env> {
     const row = this.getItem(msg.cid) as ItemRow;
     this.broadcastItem(row);
     await this.scheduleAlarm();
-    return { ...(await this.uploadTargets(row)), deleteToken: del?.token };
+    return { ...(await this.uploadTargets(att, row)), deleteToken: del?.token };
   }
 
   private async onUploadUrls(att: Att, msg: Extract<C2SMsg, { t: 'upload.urls' }>) {
@@ -585,7 +587,7 @@ export class SpaceDO extends DurableObject<Env> {
     const urls: Record<number, string> = {};
     for (const n of msg.parts) {
       if (n > count) throw new ApiError('bad_request');
-      urls[n] = await this.r2().presignPart(row.storage_key as string, row.upload_id, n, SIGNED_PUT_TTL);
+      urls[n] = await this.store(att.origin).presignPart(row.storage_key as string, row.upload_id, n, SIGNED_PUT_TTL, row.part_size as number);
     }
     return { urls };
   }
@@ -607,7 +609,7 @@ export class SpaceDO extends DurableObject<Env> {
       const count = partCount(stored, row.part_size as number);
       if (parts.length !== count || parts.some((p, i) => p.n !== i + 1)) throw new ApiError('bad_request');
       try {
-        await this.r2().completeMultipart(key, row.upload_id, parts);
+        await this.store(att.origin).completeMultipart(key, row.upload_id, parts);
       } catch {
         throw new ApiError('bad_request');
       }
@@ -634,7 +636,7 @@ export class SpaceDO extends DurableObject<Env> {
    * A signed GET valid 15 min. The first download of a one-download item consumes it — except by
    * the uploader's own device (§9.7).
    */
-  protected async downloadUrl(att: Att | null, id: string): Promise<{ url: string }> {
+  protected async downloadUrl(att: Att | null, id: string, origin = att?.origin ?? ''): Promise<{ url: string }> {
     const row = this.getItem(id);
     const now = Date.now();
     if (!row || row.type !== 'file' || row.status !== 'ready' || row.consumed_at || this.effectiveExpiry(row) <= now) {
@@ -645,7 +647,7 @@ export class SpaceDO extends DurableObject<Env> {
       this.setPaused();
       throw new ApiError('uploads_paused');
     }
-    const url = await this.r2().presignGet(row.storage_key as string, SIGNED_GET_TTL);
+    const url = await this.store(origin).presignGet(row.storage_key as string, SIGNED_GET_TTL);
     if (row.burn && row.device !== att?.deviceHash) {
       this.sql.exec('UPDATE items SET consumed_at = ? WHERE id = ?', now, row.id);
       this.broadcast({ t: 'item.removed', id: row.id });
@@ -681,10 +683,10 @@ export class SpaceDO extends DurableObject<Env> {
     };
   }
 
-  async fileDownload(itemId: string): Promise<{ url: string } | { error: ErrorCode }> {
+  async fileDownload(itemId: string, origin: string): Promise<{ url: string } | { error: ErrorCode }> {
     if (!this.fileRow(itemId)) return { error: 'not_found' };
     try {
-      return await this.downloadUrl(null, itemId);
+      return await this.downloadUrl(null, itemId, origin);
     } catch (err) {
       return { error: err instanceof ApiError ? err.code : 'bad_request' };
     }
@@ -988,7 +990,7 @@ export class SpaceDO extends DurableObject<Env> {
         reserved += this.stored(r);
         if (r.upload_id) {
           try {
-            await this.r2().abortMultipart(r.storage_key as string, r.upload_id);
+            await this.store('').abortMultipart(r.storage_key as string, r.upload_id);
           } catch (err) {
             console.error('abort multipart', (err as Error).message);
           }

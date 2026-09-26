@@ -5,6 +5,7 @@ import { type Env, allowedOrigins, flag, maxCloudBytes, storageEnabled } from '.
 import { type Ctx, fail, getIpHash, isCapacityError, limited, ok } from './http';
 import { clientIp, networkId, safeEqual } from './ip';
 import { closeWith } from './space/SpaceDO';
+import { verifyBlob } from './r2';
 import { verifyPass } from './tokens';
 
 export { SpaceDO } from './space/SpaceDO';
@@ -30,8 +31,8 @@ app.use('*', async (c, next) => {
     if (!allowed) return c.body(null, 403);
     return c.body(null, 204, {
       'Access-Control-Allow-Origin': allowed,
-      'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Content-Disposition, Authorization',
       'Access-Control-Max-Age': '86400',
       Vary: 'Origin',
     });
@@ -41,6 +42,7 @@ app.use('*', async (c, next) => {
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) c.res.headers.set(k, v);
   if (allowed) {
     c.res.headers.set('Access-Control-Allow-Origin', allowed);
+    c.res.headers.set('Access-Control-Expose-Headers', 'ETag, Content-Length');
     c.res.headers.append('Vary', 'Origin');
   }
 });
@@ -107,6 +109,7 @@ app.get('/v1/ws', async (c) => {
   if (net) headers.set('x-dz-net', net);
   headers.set('x-dz-ip', await getIpHash(c));
   if (viaPass) headers.set('x-dz-via-pass', '1');
+  headers.set('x-dz-origin', new URL(c.req.url).origin);
   try {
     const stub = c.env.SPACE.get(c.env.SPACE.idFromName(name));
     return await stub.fetch(new Request('https://space/ws', { headers }));
@@ -221,13 +224,45 @@ app.post('/v1/files/:ref/download', async (c) => {
   const target = spaceForRef(c.env, c.req.param('ref'));
   if (!target) return fail(c, 'not_found', 404);
   try {
-    const r = await target.stub.fileDownload(target.itemId);
+    const r = await target.stub.fileDownload(target.itemId, new URL(c.req.url).origin);
     if ('error' in r) return fail(c, r.error, r.error === 'not_found' ? 404 : r.error === 'uploads_paused' ? 503 : 400);
     return ok(c, r);
   } catch (err) {
     if (isCapacityError(err)) return fail(c, 'at_capacity', 503);
     return fail(c, 'not_found', 404);
   }
+});
+
+// ───────────────────────── relayed file bytes (no R2 S3 keys) ─────────────────────────
+
+app.put('/v1/blob/:token', async (c) => {
+  const g = await verifyBlob(c.env.PASS_SECRET, c.req.param('token'));
+  if (!g || g.m === 'get') return fail(c, 'forbidden', 403);
+  const len = Number(c.req.header('Content-Length'));
+  if (!Number.isFinite(len) || len <= 0 || len > g.max || !c.req.raw.body) return fail(c, 'bad_request', 400);
+  const body = c.req.raw.body.pipeThrough(new FixedLengthStream(len));
+  try {
+    if (g.m === 'put') {
+      const obj = await c.env.FILES.put(g.k, body, { httpMetadata: { contentType: g.ct, contentDisposition: g.cd } });
+      return c.body(null, 200, { ETag: obj?.httpEtag ?? '' });
+    }
+    const part = await c.env.FILES.resumeMultipartUpload(g.k, g.u).uploadPart(g.n, body);
+    return c.body(null, 200, { ETag: `"${part.etag}"` });
+  } catch {
+    return fail(c, 'bad_request', 400);
+  }
+});
+
+app.get('/v1/blob/:token', async (c) => {
+  const g = await verifyBlob(c.env.PASS_SECRET, c.req.param('token'));
+  if (g?.m !== 'get') return fail(c, 'not_found', 404);
+  const obj = await c.env.FILES.get(g.k);
+  if (!obj) return fail(c, 'not_found', 404);
+  const headers = new Headers();
+  obj.writeHttpMetadata(headers);
+  headers.set('Content-Length', String(obj.size));
+  headers.set('ETag', obj.httpEtag);
+  return new Response(obj.body, { headers });
 });
 
 // ───────────────────────── reports & feedback (§14.7) ─────────────────────────

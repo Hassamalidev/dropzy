@@ -479,7 +479,10 @@ export class Space {
     for (const f of files) void this.sendFile(f);
   }
 
-  /** Decide how a file travels (§9.1). */
+  /**
+   * Decide how a file travels (§9.1). Uploads come first so the file lands in the space — every
+   * device here now or later sees it, and its expiry starts. Direct is for when uploading can't.
+   */
   protected async sendFile(file: File) {
     const s = this.store.get();
     const uploads = s.space?.uploads ?? 'off';
@@ -488,8 +491,6 @@ export class Space {
     const canUpload = uploads === 'on' && file.size <= this.maxUpload;
     const direct = this.supportsDirect() && !busy;
 
-    // Wi-Fi or Private, exactly one other device here → direct, falling back to upload.
-    if (this.mode !== 'room' && direct && others.length === 1) return this.sendDirect(file, others[0], canUpload);
     if (canUpload) return this.uploadFile(file);
 
     // Upload impossible: direct to each device here (max 4; never on busy networks).

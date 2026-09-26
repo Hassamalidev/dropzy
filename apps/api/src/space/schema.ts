@@ -42,7 +42,7 @@ export const C2SSchema = z.discriminatedUnion('t', [
     rid,
     id,
     parts: z
-      .array(z.strictObject({ n: z.number().int().min(1).max(10_000), etag: z.string().min(1).max(128) }))
+      .array(z.strictObject({ n: z.number().int().min(1).max(10_000), etag: z.string().min(1).max(512) }))
       .max(10_000)
       .optional(),
   }),

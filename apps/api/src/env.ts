@@ -47,11 +47,9 @@ export function allowedOrigins(env: Env): string[] {
   return [env.SITE_ORIGIN, ...(env.EXTRA_ORIGINS || '').split(',')].map((s) => s.trim()).filter(Boolean);
 }
 
-/** Uploads need the switch on and R2 credentials present; otherwise direct-only mode (§4.5). */
-export const storageEnabled = (env: Env) =>
-  flag(env.STORAGE_ENABLED) &&
-  !!env.R2_ACCESS_KEY_ID &&
-  !!env.R2_SECRET_ACCESS_KEY &&
-  !!env.R2_ACCOUNT_ID &&
-  !env.R2_ACCOUNT_ID.startsWith('<');
+/**
+ * Uploads need the switch on and the FILES bucket bound; otherwise direct-only mode (§4.5).
+ * With R2 S3 keys the bytes go straight to R2; without them the Worker relays them (see r2.ts).
+ */
+export const storageEnabled = (env: Env) => flag(env.STORAGE_ENABLED) && !!env.FILES;
 export const maxCloudBytes = (env: Env) => num(env.MAX_CLOUD_FILE_BYTES, 2 * 1024 ** 3);

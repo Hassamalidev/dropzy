@@ -19,10 +19,11 @@ pnpm dev:api    # wrangler dev on http://localhost:8787
 pnpm dev:web    # astro dev on http://localhost:4321
 ```
 
-Open http://localhost:4321 in two browser windows. Text, rooms, Private Share and **direct transfers** all work locally.
-Uploads need real R2 credentials: without `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` in `.dev.vars`, the API runs in
-**direct-only mode** (same as `STORAGE_ENABLED=false`). To test uploads locally, put your R2 token in `.dev.vars` and add
-`http://localhost:4321` to the bucket's CORS rules (step 3).
+Open http://localhost:4321 in two browser windows. Text, rooms, Private Share, uploads and direct transfers all work
+locally. Without `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` in `.dev.vars`, the Worker relays file bytes through its
+`FILES` binding (wrangler keeps them on disk under `.wrangler/`). With the keys, browsers upload straight to R2 instead —
+then add `http://localhost:4321` to the bucket's CORS rules (step 3). `STORAGE_ENABLED=false` turns uploads off
+(direct-only mode).
 
 Checks:
 
@@ -67,6 +68,9 @@ the limits. **No card?** Set `"STORAGE_ENABLED": "false"` in `wrangler.jsonc` an
 direct-only mode.
 
 1. Dashboard → **R2 Object Storage** → **Create bucket** → name `dropzy-files`.
+   The bucket binding alone is enough: without an S3 token the Worker relays uploads and downloads itself (parts stay
+   ≤ 64 MiB, under the Worker request limit). Steps 2–3 are recommended for production, so file bytes go straight to R2
+   and don't count against Worker CPU and bandwidth.
 2. **R2 → Manage API tokens → Create API token**: permission **Object Read & Write**, **Apply to specific buckets only** →
    `dropzy-files`. Copy the Access Key ID and Secret Access Key, then:
    ```sh
