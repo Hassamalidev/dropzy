@@ -13,12 +13,16 @@ export function WifiConnect() {
   useEffect(() => {
     let live = true;
     let timer = 0;
+    let retry = 5_000;
     const load = async () => {
       const p = await space.createPass();
       if (!live) return;
       setPass(p);
       // The pair code lasts 10 minutes; make a fresh one when it runs out.
-      if (p) timer = window.setTimeout(load, Math.max(30_000, p.expiresAt - Date.now()));
+      // Couldn't make one (offline, rate limited): try again shortly instead of spinning forever,
+      // backing off so a rate limit isn't kept alive by our own retries.
+      timer = window.setTimeout(load, p ? Math.max(30_000, p.expiresAt - Date.now()) : retry);
+      retry = p ? 5_000 : Math.min(retry * 2, 60_000);
     };
     void load();
     return () => {

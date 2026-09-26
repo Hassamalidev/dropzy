@@ -115,6 +115,17 @@ describe('uploads', () => {
     expect(await b.request({ t: 'download.url', id })).toMatchObject({ ok: false, error: 'not_found' });
   });
 
+  it('hands a one-download file to only one of two downloads at once', async () => {
+    const { a, ref } = await room();
+    const { id } = await upload(a, 10, { burn: true });
+    await FILES().put(`f/${id}`, new Uint8Array(10));
+    await a.request({ t: 'upload.complete', id });
+    const dl = () => SELF.fetch(`https://api.test/v1/files/${ref}.${id}/download`, { method: 'POST', headers: { Origin: ORIGIN } });
+    const res = await Promise.all([dl(), dl(), dl()]);
+    const oks = (await Promise.all(res.map((r) => r.json() as Promise<any>))).filter((j) => j.ok);
+    expect(oks.length).toBe(1);
+  });
+
   it('refuses files over the upload limit', async () => {
     const { a } = await room();
     const { init } = await upload(a, 200 * 1024 * 1024);

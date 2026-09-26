@@ -78,6 +78,10 @@ export class SpaceSocket {
     const old = this.ws;
     this.ws = null;
     old?.close(1000);
+    // The old socket's close is ignored below, so settle what it left: its pong timer would
+    // close the new socket, and its requests would sit until they time out.
+    this.clearPing();
+    this.failPending('offline');
     this.ready = false;
     this.attempt = 0;
     this.connect();
@@ -136,6 +140,8 @@ export class SpaceSocket {
         this.ev.onTerminal(terminal);
         return;
       }
+      // Nothing sent on this socket will be answered; idempotent requests retry once it's back.
+      this.failPending('offline');
       this.ev.onDown();
       this.scheduleReconnect(e.code === CLOSE.RATE_LIMITED);
     };

@@ -1,7 +1,7 @@
 import { E2EE_CHUNK, E2EE_TAG, partSizeFor, storedSize } from '@dropzy/shared';
 import { describe, expect, it } from 'vitest';
 import { decryptStream, encryptedSource, fileKeys, openMeta, sealMeta } from '../src/lib/crypto/files';
-import { decryptText, encryptText, itemRoot, newRelayKeys, openRoot, sealRoot } from '../src/lib/crypto/keys';
+import { decryptText, encryptText, fromShareSecret, itemRoot, newRelayKeys, newShareSecret, openRoot, sealRoot, secretFromHash } from '../src/lib/crypto/keys';
 
 const K = crypto.getRandomValues(new Uint8Array(32));
 
@@ -79,5 +79,28 @@ describe('file key relay (file codes)', () => {
     const other = await newRelayKeys();
     await expect(openRoot(other.keys, ID, pub, box)).rejects.toThrow();
     await expect(openRoot(asker.keys, 'BBBBBBBBBBBBBBBBBBBBBB', pub, box)).rejects.toThrow();
+  });
+});
+
+describe('short Private Share links', () => {
+  it('turns one 22-character secret into the same token and key on every device', async () => {
+    const secret = newShareSecret();
+    expect(secret).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    const a = await fromShareSecret(secret);
+    const b = await fromShareSecret(secret);
+    expect(a.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(a.token).toBe(b.token);
+    expect([...a.key]).toEqual([...b.key]);
+    expect(a.key.length).toBe(32);
+    // The token (sent to the server) is not the key.
+    expect(a.token).not.toContain(secret);
+    const other = await fromShareSecret(newShareSecret());
+    expect(other.token).not.toBe(a.token);
+  });
+
+  it('reads only a bare 22-character fragment', () => {
+    expect(secretFromHash('#SE8VoUnI-vjJ2p0kJ3t1uo')).toBe('SE8VoUnI-vjJ2p0kJ3t1uo');
+    expect(secretFromHash('#k=FKFOldJ35dr7Ywu8RuROInfXpPR3LOfUHKdkb1fDPmE')).toBeNull();
+    expect(secretFromHash('')).toBeNull();
   });
 });

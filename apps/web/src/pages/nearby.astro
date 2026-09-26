@@ -1,0 +1,67 @@
+---
+import NearbyApp from '../components/share/NearbyApp';
+import LandingInfo, { type Faq, type Step } from '../components/site/LandingInfo.astro';
+import Base from '../layouts/Base.astro';
+import { faqPage } from '../lib/seo';
+import { t } from '../strings/en';
+
+const steps: Step[] = [
+  {
+    icon: 'smartphone',
+    title: 'Open Nearby on each device',
+    text: 'Open this page on the phones and computers you want to share between. Each one on the same Wi-Fi shows up here by name.',
+  },
+  {
+    icon: 'send',
+    title: 'Tap a device',
+    text: 'Pick the device you want and choose your files, or drag them onto it. Only that device gets them.',
+  },
+  {
+    icon: 'download',
+    title: 'Save on the other side',
+    text: 'The other person sees who is sending and saves the files. Nothing is uploaded; it all goes browser to browser.',
+  },
+];
+
+const faq: Faq[] = [
+  {
+    q: 'Can Dropzy see every device on my Wi-Fi?',
+    a: 'No. A web page cannot scan your network. Nearby lists devices on the same Wi-Fi that have this page open, and nothing else.',
+  },
+  {
+    q: 'Why does my device show up as “Chrome on Windows” or “iPhone”?',
+    a: 'Browsers do not share a device’s real name, so Dropzy builds one from what the browser reports. Tap your own name to change it to something like “Sara’s iPhone”.',
+  },
+  {
+    q: 'Are the files uploaded anywhere?',
+    a: 'No. Files go straight from one browser to the other over an encrypted connection. They are never stored on our servers.',
+  },
+  {
+    q: 'The other device isn’t listed. What now?',
+    a: 'Check that both are on the same Wi-Fi and that neither uses a VPN or mobile data. If they are on different networks, use a Private Share instead.',
+  },
+];
+---
+
+<Base
+  title="Nearby Devices — send files to a device on your Wi-Fi"
+  description="See the phones and computers on your Wi-Fi that have Dropzy open, by name, and send files straight to one. No app, no account, nothing uploaded."
+  active="nearby"
+  jsonLd={[faqPage(faq)]}
+>
+  <NearbyApp client:only="react">
+    <div slot="fallback">
+      <section class="flex flex-col items-center gap-2.5 pt-5 pb-5 text-center sm:pt-6">
+        <h1 class="text-2xl font-bold tracking-tight text-balance text-slate-900 sm:text-3xl dark:text-white">{t.devices.hero.title}</h1>
+        <p class="text-balance text-slate-600 dark:text-slate-300">{t.devices.hero.subtitle}</p>
+      </section>
+      <div class="card flex items-center justify-center p-10 text-slate-500" role="status">{t.devices.searching}</div>
+    </div>
+  </NearbyApp>
+  <LandingInfo
+    heading="Send files to a device near you"
+    intro="Like AirDrop, but for every phone and computer. Everyone on your Wi-Fi with this page open shows up by name. Pick one and send, with no app, no account and no upload."
+    steps={steps}
+    faq={faq}
+  />
+</Base>

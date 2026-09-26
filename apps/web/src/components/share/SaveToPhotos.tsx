@@ -22,6 +22,7 @@ export function SaveToPhotos({
   ready,
   load,
   onError,
+  onSaved,
   className = 'btn-ghost min-h-9 px-2.5 text-xs',
 }: {
   mime?: string;
@@ -30,6 +31,8 @@ export function SaveToPhotos({
   /** Fetch the file, reporting 0–100. */
   load: (onPct: (pct: number) => void) => Promise<File>;
   onError: (msg: string) => void;
+  /** The share sheet finished (e.g. saved to Photos). */
+  onSaved?: () => void;
   className?: string;
 }) {
   const [file, setFile] = useState<File | null>(ready ?? null);
@@ -37,7 +40,7 @@ export function SaveToPhotos({
   if (!canSaveToPhotos(mime)) return null;
 
   const share = (f: File) => {
-    navigator.share({ files: [f] }).catch((e) => {
+    navigator.share({ files: [f] }).then(onSaved, (e) => {
       if (e?.name !== 'AbortError') onError(t.item.failed);
     });
   };

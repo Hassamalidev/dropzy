@@ -207,9 +207,12 @@ export class SpaceDO extends DurableObject<Env> {
     return s;
   }
 
-  /** Create a Private Share or Room (RPC from the Worker). */
-  async init(kind: 'ses' | 'room', roomCode?: string): Promise<{ expiresAt: number }> {
-    if (this.space()) throw new Error('exists');
+  /**
+   * Create a Private Share or Room (RPC from the Worker). null when it already exists: returned, not
+   * thrown, since an error thrown out of an RPC method is logged as uncaught.
+   */
+  async init(kind: 'ses' | 'room', roomCode?: string): Promise<{ expiresAt: number } | null> {
+    if (this.space()) return null;
     const now = Date.now();
     const expiresAt = now + (kind === 'ses' ? SES_TTL : ROOM_TTL);
     const max = now + (kind === 'ses' ? SES_MAX : ROOM_MAX);
@@ -559,6 +562,9 @@ export class SpaceDO extends DurableObject<Env> {
       }
     } catch (err) {
       await this.guard().release(stored, false);
+      await this.directory()
+        .releaseFile(code, `${this.ref()}.${msg.cid}`)
+        .catch(() => {});
       throw err;
     }
     const del = base.net ? await this.makeDeleteToken() : null;
@@ -662,6 +668,8 @@ export class SpaceDO extends DurableObject<Env> {
     }
     const url = await this.store(origin).presignGet(row.storage_key as string, SIGNED_GET_TTL);
     if (row.burn && row.device !== att?.deviceHash) {
+      // Two downloads can both get past the first check while the awaits above run; only one wins.
+      if (this.getItem(id)?.consumed_at !== null) throw new ApiError('not_found');
       this.sql.exec('UPDATE items SET consumed_at = ? WHERE id = ?', now, row.id);
       this.broadcast({ t: 'item.removed', id: row.id });
       await this.scheduleAlarm();
@@ -699,9 +707,9 @@ export class SpaceDO extends DurableObject<Env> {
   private keyWaits = new Map<string, (r: FileKeyRes) => void>();
 
   /**
-   * A device that typed a Private Share file's code asks for its key. Any device still open in
-   * this share answers with the key sealed to the asker's ECDH key, so it never passes here in the
-   * clear. Nobody open → sender_offline.
+   * A device that typed a Private Share file's code asks for its key. A device still open in this
+   * share answers — once its user approves — with the key sealed to the asker's ECDH key, so it
+   * never passes here in the clear. Nobody open or nobody approves → sender_offline.
    */
   async relayKey(itemId: string, pub: string): Promise<FileKeyRes | { error: ErrorCode }> {
     const row = this.fileRow(itemId);
@@ -780,7 +788,7 @@ export class SpaceDO extends DurableObject<Env> {
   protected peers(except?: WebSocket): PeerList {
     const list = this.sockets().filter((s) => s.ws !== except);
     if (this.busy()) return { count: new Set(list.map((s) => s.att.deviceHash)).size };
-    return list.map(({ att }) => ({ peerId: att.peerId, name: att.name as string, type: att.type as DeviceType }));
+    return list.map(({ att }) => ({ peerId: att.peerId, name: att.name as string, type: att.type as DeviceType, direct: !!att.caps?.direct }));
   }
 
   /** Tell everyone who's here. `gone` is left out of the list (closing socket); `skip` gets no message. */
@@ -1189,8 +1197,8 @@ export class SpaceDO extends DurableObject<Env> {
 
 export const NO_ACK = Symbol('no-ack');
 
-/** How long a key request waits for a device in the share to answer. */
-const KEY_WAIT_MS = 15_000;
+/** How long a key request waits for someone in the share to tap "Send" (the prompt shows for 55 s). */
+const KEY_WAIT_MS = 60_000;
 
 function validThumb(thumb: string, e2ee: boolean): boolean {
   if (e2ee) return /^[A-Za-z0-9+/]+=*$/.test(thumb) && thumb.length <= 48_000;

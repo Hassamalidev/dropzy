@@ -48,14 +48,20 @@ const s = { thanks: t.feature.thanks, failed: t.feature.failed, sending: t.featu
         dlg.showModal();
       }
     });
+    // Only a press that starts and ends on the backdrop closes it — not a text selection dragged out.
+    let downOnBackdrop = false;
+    dlg.addEventListener('pointerdown', (e) => (downOnBackdrop = e.target === dlg));
     dlg.addEventListener('click', (e) => {
-      if (e.target === dlg || e.target.closest('[data-close]')) dlg.close();
+      if ((e.target === dlg && downOnBackdrop) || e.target.closest('[data-close]')) dlg.close();
     });
     dlg.addEventListener('close', () => opener?.focus());
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const btn = form.querySelector('button[type=submit] span');
+      const submit = form.querySelector('button[type=submit]');
+      if (submit.disabled) return;
+      const btn = submit.querySelector('span');
       const fd = new FormData(form);
+      submit.disabled = true;
       btn.textContent = s.sending;
       try {
         const res = await fetch(`${api}/v1/feedback`, {
@@ -75,6 +81,7 @@ const s = { thanks: t.feature.thanks, failed: t.feature.failed, sending: t.featu
       } catch {
         window.dzToast?.(s.failed);
       } finally {
+        submit.disabled = false;
         btn.textContent = s.send;
       }
     });

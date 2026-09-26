@@ -1,0 +1,72 @@
+---
+import { getCollection } from 'astro:content';
+import Icon from './Icon.astro';
+
+// Plain-HTML text under an app page, so search engines (and people who scroll) learn what the
+// page does. The app above it is drawn in the browser and says almost nothing to a crawler.
+export type Step = { icon: 'smartphone' | 'upload' | 'download' | 'send' | 'wifi' | 'lock'; title: string; text: string };
+export type Faq = { q: string; a: string };
+
+interface Props {
+  heading: string;
+  intro: string;
+  steps: Step[];
+  faq: Faq[];
+}
+const { heading, intro, steps, faq } = Astro.props;
+const guides = (await getCollection('guides')).sort((a, b) => a.data.title.localeCompare(b.data.title));
+---
+
+<div class="mx-auto mt-14 flex max-w-4xl flex-col gap-12 border-t border-slate-200 pt-10 dark:border-night-line">
+  <section aria-labelledby="info-title" class="flex flex-col gap-6">
+    <div class="text-center">
+      <h2 id="info-title" class="text-2xl font-bold tracking-tight text-balance text-slate-900 dark:text-white">{heading}</h2>
+      <p class="mx-auto mt-3 max-w-2xl text-pretty text-slate-600 dark:text-slate-400">{intro}</p>
+    </div>
+    <ol class="grid gap-4 sm:grid-cols-3">
+      {
+        steps.map((s, i) => (
+          <li class="card flex flex-col gap-2 p-5">
+            <span class="inline-flex size-10 items-center justify-center rounded-full bg-accent-soft text-accent-ink">
+              <Icon name={s.icon} size={20} />
+            </span>
+            <h3 class="font-semibold text-slate-900 dark:text-white">
+              {i + 1}. {s.title}
+            </h3>
+            <p class="text-sm text-slate-600 dark:text-slate-400">{s.text}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <section aria-labelledby="faq-title" class="flex flex-col gap-3">
+    <h2 id="faq-title" class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Questions</h2>
+    {
+      faq.map((f) => (
+        <details class="card group p-4">
+          <summary class="cursor-pointer font-medium text-slate-900 marker:text-accent dark:text-white">{f.q}</summary>
+          <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">{f.a}</p>
+        </details>
+      ))
+    }
+    <p class="text-sm">
+      <a href="/how-it-works" class="link">More about how Dropzy works</a>
+    </p>
+  </section>
+
+  <nav aria-labelledby="guides-title" class="flex flex-col gap-3">
+    <h2 id="guides-title" class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Guides</h2>
+    <ul class="grid gap-2 sm:grid-cols-2">
+      {
+        guides.map((g) => (
+          <li>
+            <a href={`/guides/${g.id}`} class="link">
+              {g.data.title}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+</div>

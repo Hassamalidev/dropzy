@@ -41,7 +41,8 @@ export function TextPanel({ query }: { query: string }) {
     setSending(true);
     const ok = await space.addText(text);
     setSending(false);
-    if (ok && text === draft) setDraft('');
+    // Keep anything typed while it was sending.
+    if (ok) setDraft((d) => (d === text ? '' : d));
   };
 
   const pasteAndSend = async () => {

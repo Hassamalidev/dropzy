@@ -1,17 +1,72 @@
 ---
 import ShareApp from '../components/share/ShareApp';
+import LandingInfo, { type Faq, type Step } from '../components/site/LandingInfo.astro';
 import Base from '../layouts/Base.astro';
-import { organization, webApplication } from '../lib/seo';
+import { faqPage, organization, webApplication, website } from '../lib/seo';
 import { t } from '../strings/en';
+
+const steps: Step[] = [
+  {
+    icon: 'wifi',
+    title: 'Open Dropzy on both devices',
+    text: 'Open this page on your phone and your computer. On the same Wi-Fi they find each other by themselves: no pairing, no Bluetooth, no cable.',
+  },
+  {
+    icon: 'upload',
+    title: 'Add files or text',
+    text: 'Drag files in, tap Choose files, or paste a screenshot. Photos, videos, PDFs, links and notes all work.',
+  },
+  {
+    icon: 'download',
+    title: 'Grab them on the other side',
+    text: 'They show up on the other device straight away. Download them, or save photos to your gallery. Everything deletes itself after 2 hours.',
+  },
+];
+
+const faq: Faq[] = [
+  {
+    q: 'How do I send files from my phone to my PC without a cable?',
+    a: 'Open Dropzy in a browser on both devices while they are on the same Wi-Fi. Pick files on your phone and they appear on your PC a moment later. There is no app to install and no account to make.',
+  },
+  {
+    q: 'Does it work between iPhone and Windows, or Android and Mac?',
+    a: 'Yes. Dropzy runs in any modern browser, so it works between iPhone, iPad, Android, Windows, Mac, Linux and Chromebook, like AirDrop but for every device.',
+  },
+  {
+    q: 'Is Dropzy free? Do I need to sign up?',
+    a: 'It is free, with no sign-up, no account and no cookies.',
+  },
+  {
+    q: 'What if my devices are on different networks?',
+    a: 'Start a Private Share and scan its QR code, or create a Room and share the 6-digit code. Private Share is end-to-end encrypted.',
+  },
+  {
+    q: 'How long do shared files stay?',
+    a: 'On Wi-Fi Share each file or note lasts 2 hours, then it is deleted automatically.',
+  },
+];
 ---
 
 <Base
   title="Dropzy — Send files between phone and PC, free"
   description="Move files and text between your phone and computer in the browser. Same Wi-Fi? It just works. No app, no account — and everything deletes itself."
   active="wifi"
-  jsonLd={[webApplication, organization]}
+  jsonLd={[website, webApplication, organization, faqPage(faq)]}
 >
   <ShareApp client:only="react" mode="wifi">
-    <div slot="fallback" class="card mt-8 flex items-center justify-center p-10 text-slate-500" role="status">{t.starting.connecting}</div>
+    <!-- What crawlers and slow connections see until the app starts; matches the app's own heading. -->
+    <div slot="fallback">
+      <section class="flex flex-col items-center gap-2.5 pt-5 pb-5 text-center sm:pt-6">
+        <h1 class="text-2xl font-bold tracking-tight text-balance text-slate-900 sm:text-3xl dark:text-white">{t.hero.wifi.title}</h1>
+        <p class="text-balance text-slate-600 dark:text-slate-300">{t.hero.wifi.subtitle}</p>
+      </section>
+      <div class="card flex items-center justify-center p-10 text-slate-500" role="status">{t.starting.connecting}</div>
+    </div>
   </ShareApp>
+  <LandingInfo
+    heading="Send files between your phone and computer"
+    intro="Dropzy moves photos, videos, documents and text between any two devices right in the browser, with no app, cable or account. Open it on both, drop a file on one, and it shows up on the other."
+    steps={steps}
+    faq={faq}
+  />
 </Base>

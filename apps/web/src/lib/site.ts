@@ -3,7 +3,7 @@
 export const API_URL: string = (import.meta.env.PUBLIC_API_URL || 'http://localhost:8787').replace(/\/$/, '');
 export const SITE_URL: string = (import.meta.env.PUBLIC_SITE_URL || 'https://dropzy.app').replace(/\/$/, '');
 
-export type NavKey = 'wifi' | 'private' | 'room' | 'join' | null;
+export type NavKey = 'wifi' | 'private' | 'room' | 'join' | 'nearby' | null;
 
 // Droplet in a rounded orange square, as an inline data URI (no extra request).
 export const FAVICON_SVG =

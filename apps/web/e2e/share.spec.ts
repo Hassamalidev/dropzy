@@ -25,7 +25,7 @@ test.describe('Private Share', () => {
   test('two devices share encrypted text instantly', async ({ browser }) => {
     const a = await page(browser);
     await a.goto('/private');
-    await a.waitForURL(/\/s\/[A-Za-z0-9_-]{43}#k=/);
+    await a.waitForURL(/\/s#[A-Za-z0-9_-]{22}$/);
     await expect(a.getByText('End-to-end encrypted').first()).toBeVisible();
     const b = await page(browser, { width: 390 });
     await b.goto(a.url());
@@ -38,7 +38,7 @@ test.describe('Private Share', () => {
   test('a link without its key shows the friendly message', async ({ browser }) => {
     const a = await page(browser);
     await a.goto('/private');
-    await a.waitForURL(/#k=/);
+    await a.waitForURL(/\/s#/);
     const b = await page(browser);
     await b.goto(a.url().split('#')[0]);
     await expect(b.getByText('missing its last part')).toBeVisible();
@@ -47,7 +47,7 @@ test.describe('Private Share', () => {
   test('extends up to the maximum', async ({ browser }) => {
     const a = await page(browser);
     await a.goto('/private');
-    await a.waitForURL(/#k=/);
+    await a.waitForURL(/\/s#/);
     const extend = a.getByRole('button', { name: /Extend/ });
     await extend.click();
     // Minutes round up, so 4 h can read "3 h 59 min" or "4 h 0 min".
@@ -100,6 +100,45 @@ test.describe('Wi-Fi Share', () => {
     await expect(a.getByText(/Sent directly to/).first()).toBeVisible();
     const [dl] = await Promise.all([b.waitForEvent('download'), b.getByRole('button', { name: 'Save', exact: true }).click()]);
     expect(dl.suggestedFilename()).toBe('direct.bin');
+  });
+});
+
+test.describe('Nearby', () => {
+  test('lists the other device by name and sends straight to it', async ({ browser }) => {
+    const a = await page(browser);
+    const b = await page(browser);
+    await a.goto('/nearby');
+    await b.goto('/nearby');
+    await expect(a.getByRole('heading', { name: 'Devices near you' })).toBeVisible();
+    const tile = a.getByRole('button', { name: /^Send files to / }).first();
+    await expect(tile).toBeVisible();
+    // A real-looking name from the browser, not "Blue Fox".
+    await expect(tile).toContainText(/Chrome/);
+    const [chooser] = await Promise.all([a.waitForEvent('filechooser'), tile.click()]);
+    await chooser.setFiles({ name: 'picked.txt', mimeType: 'text/plain', buffer: Buffer.from('hello there') });
+    await expect(b.getByText(/is sending you picked\.txt/)).toBeVisible({ timeout: 30_000 });
+    await expect(b.getByText(/Received from .* never uploaded/)).toBeVisible({ timeout: 30_000 });
+    await expect(a.getByText(/Sent directly to/).first()).toBeVisible();
+  });
+
+  test('renaming shows the new name on the other device', async ({ browser }) => {
+    const a = await page(browser);
+    const b = await page(browser);
+    await a.goto('/nearby');
+    await b.goto('/nearby');
+    await a.getByRole('button', { name: /· You/ }).click();
+    await a.getByLabel('Device name').fill('Test Laptop');
+    await a.getByRole('button', { name: 'Save' }).click();
+    await expect(b.getByRole('button', { name: 'Send files to Test Laptop' })).toBeVisible();
+  });
+
+  test('only lists devices on the Nearby page, not Wi-Fi Share', async ({ browser }) => {
+    const a = await page(browser);
+    const b = await page(browser);
+    await a.goto('/nearby');
+    await b.goto('/');
+    await expect(b.getByRole('heading', { name: 'Devices near you' })).toHaveCount(0);
+    await expect(a.getByText(/^No one yet/)).toBeVisible();
   });
 });
 

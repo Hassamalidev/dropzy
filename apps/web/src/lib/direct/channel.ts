@@ -16,24 +16,45 @@ import type { Sink } from '../sink';
 
 export type Meta = { t: 'meta'; id: string; name: string; size: number; mime: string; thumb?: string };
 
+/** A peer's meta is untrusted: its id names a stored file and a row, its thumb goes into <img src>. */
+function validMeta(m: any): m is Meta {
+  return (
+    typeof m?.id === 'string' &&
+    /^[A-Za-z0-9_-]{8,32}$/.test(m.id) &&
+    typeof m.name === 'string' &&
+    m.name.length > 0 &&
+    m.name.length <= 255 &&
+    Number.isSafeInteger(m.size) &&
+    m.size >= 0 &&
+    typeof m.mime === 'string' &&
+    m.mime.length <= 255 &&
+    (m.thumb === undefined || (typeof m.thumb === 'string' && m.thumb.length <= 40_000 && /^data:image\/(webp|jpeg|png);base64,[A-Za-z0-9+/]+=*$/.test(m.thumb)))
+  );
+}
+
 export class DirectError extends Error {
   constructor(public reason: 'timeout' | 'declined' | 'stalled' | 'cancelled' | 'closed' | 'too_big' | 'no_space') {
     super(reason);
   }
 }
 
-function waitOpen(ch: RTCDataChannel, ms: number): Promise<void> {
+function waitOpen(ch: RTCDataChannel, ms: number, signal: AbortSignal): Promise<void> {
   if (ch.readyState === 'open') return Promise.resolve();
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new DirectError('timeout')), ms);
-    ch.addEventListener('open', () => {
+    const done = (err?: DirectError) => {
       clearTimeout(timer);
-      resolve();
-    }, { once: true });
-    ch.addEventListener('close', () => {
-      clearTimeout(timer);
-      reject(new DirectError('closed'));
-    }, { once: true });
+      ch.removeEventListener('open', onOpen);
+      ch.removeEventListener('close', onClose);
+      signal.removeEventListener('abort', onAbort);
+      err ? reject(err) : resolve();
+    };
+    const onOpen = () => done();
+    const onClose = () => done(new DirectError('closed'));
+    const onAbort = () => done(new DirectError('cancelled')); // Cancel while connecting: stop now, not at the timeout
+    const timer = setTimeout(() => done(new DirectError('timeout')), ms);
+    ch.addEventListener('open', onOpen);
+    ch.addEventListener('close', onClose);
+    signal.addEventListener('abort', onAbort);
   });
 }
 
@@ -88,7 +109,17 @@ export async function sendFile(
 ): Promise<void> {
   ch.binaryType = 'arraybuffer';
   ch.bufferedAmountLowThreshold = DIRECT_LOW_WATER;
-  await waitOpen(ch, DIRECT_CONNECT_TIMEOUT);
+  // Cancel pressed while connecting: never offer the file at all.
+  const cancelled = () => {
+    ch.close();
+    return new DirectError('cancelled');
+  };
+  if (signal.aborted) throw cancelled();
+  await waitOpen(ch, DIRECT_CONNECT_TIMEOUT, signal).catch((err) => {
+    ch.close(); // a timed-out channel would otherwise sit there half-open
+    throw signal.aborted ? cancelled() : err;
+  });
+  if (signal.aborted) throw cancelled();
   const ctl = controlQueue(ch);
   const cancel = () => {
     try {
@@ -200,9 +231,15 @@ export function receiveFile(
         if (!sink) return;
         const chunk = new Uint8Array(e.data as ArrayBuffer);
         received += chunk.length;
+        // More than the peer said it would send: its size passed the space check, this doesn't.
+        if (meta && received > meta.size) return fail(new DirectError('too_big'), true);
         const at = received;
         const s = sink;
-        chain = chain.then(() => s.write(chunk)).then(() => onProgress(at));
+        chain = chain
+          .then(() => s.write(chunk))
+          .then(() => {
+            if (!finished) onProgress(at);
+          });
         chain.catch((err) => fail(err, true));
         kick();
         return;
@@ -214,7 +251,12 @@ export function receiveFile(
         return;
       }
       if (m.t === 'meta' && !meta) {
-        meta = m as Meta;
+        if (!validMeta(m)) {
+          ch.send(JSON.stringify({ t: 'decline', reason: 'declined' }));
+          fail(new DirectError('declined'));
+          return;
+        }
+        meta = m;
         onMeta(meta);
         decide(meta).then(
           (r) => {
@@ -231,6 +273,7 @@ export function receiveFile(
         );
       } else if (m.t === 'end' && meta) {
         const m0 = meta;
+        clearTimeout(stall); // all bytes are here; writing them out may take a while
         chain
           .then(async () => {
             if (received !== m0.size) throw new DirectError('closed');

@@ -27,7 +27,7 @@ import { bump, initBadge } from './badge';
 import { copyText } from './clipboard';
 import { decryptStream, encryptedSource, fileKeys, openMeta, openThumb, sealMeta, sealThumb } from './crypto/files';
 import { decryptText, encryptText, itemRoot, sealRoot } from './crypto/keys';
-import { deleteToken, deviceId, deviceName, deviceType, isIOS, saveDeleteToken, session, setSession } from './device';
+import { deleteToken, deviceId, deviceName, deviceType, isIOS, resolveDeviceName, saveDeleteToken, session, setDeviceName, setSession } from './device';
 import { duration, nextUtcMidnight } from './format';
 import type { Direct } from './direct';
 import { cleanTmp, clickLink, hasOpfs, openSink, pipeTo, readWithProgress, saveBlob, type startPicker } from './sink';
@@ -194,6 +194,8 @@ export class Space {
   }
 
   private async hello() {
+    const name = await resolveDeviceName();
+    if (name !== this.store.get().me.name) this.store.set((s) => ({ me: { ...s.me, name } }));
     const me = this.store.get().me;
     try {
       await this.socket.request(
@@ -359,17 +361,23 @@ export class Space {
     if (item.thumb) plain.thumb = await openThumb(meta, item.thumb).catch(() => undefined);
   }
 
-  /** Someone typed one of this share's file codes: seal that file's key to their device. */
-  private async answerKey(req: string, itemId: string, askerPub: string) {
+  /**
+   * Someone typed one of this share's file codes. File codes are short enough to guess, so the key
+   * only goes out once a person here says yes; otherwise the asker times out.
+   */
+  private answerKey(req: string, itemId: string, askerPub: string) {
     const item = this.store.get().items.find((i) => i.id === itemId && i.type === 'file' && i.e2ee);
     if (!item || !this.key) return;
-    try {
-      const { pub, box } = await sealRoot((await this.itemKeys(itemId)).root, itemId, askerPub);
-      this.socket.post({ t: 'key.reply', req, pub, box });
-      this.toast(t.item.keySent(this.displayName(item)));
-    } catch {
-      // a malformed request; the asker times out
-    }
+    const send = async () => {
+      try {
+        const { pub, box } = await sealRoot((await this.itemKeys(itemId)).root, itemId, askerPub);
+        this.socket.post({ t: 'key.reply', req, pub, box });
+        this.toast(t.item.keySent(this.displayName(item)));
+      } catch {
+        // a malformed request; the asker times out
+      }
+    };
+    this.toast(t.item.keyAsk(this.displayName(item)), { label: t.item.keyAllow, run: () => void send() }, KEY_ASK_MS);
   }
 
   private keyCache = new Map<string, Promise<{ root: Uint8Array<ArrayBuffer>; content: CryptoKey; meta: CryptoKey }>>();
@@ -470,6 +478,7 @@ export class Space {
     this.store.set((s) => {
       const transfers = { ...s.transfers };
       if (patch === null) delete transfers[id];
+      else if (!transfers[id] && !patch.id) return {}; // a late update for a finished transfer
       else transfers[id] = { ...(transfers[id] as Transfer), ...patch };
       return { transfers };
     });
@@ -621,6 +630,7 @@ export class Space {
             this.localCreatedAt(meta.id);
             this.localThumbs.set(meta.id, meta.thumb);
             const peer = this.others().find((p) => p.peerId === from)?.name ?? '';
+            if (peer) this.toast(t.devices.incoming(peer, meta.name));
             this.setTransfer(meta.id, { id: meta.id, kind: 'recv', name: meta.name, size: meta.size, mime: meta.mime, loaded: 0, speed: 0, state: 'active', peer });
           },
           onIncomingProgress: (id, n) => this.progress(id, n),
@@ -631,13 +641,21 @@ export class Space {
             bump();
             this.store.set({ live: `${t.files.title} · ${t.item.from(r.from)}` });
           },
-          onIncomingFailed: (id) => {
+          onIncomingFailed: (id, err) => {
             this.samples.delete(id);
             this.setTransfer(id, null);
+            if (err.reason === 'too_big' || err.reason === 'no_space') this.toast(t.moments.noRoomHere);
           },
         }),
     );
     return this.directP;
+  }
+
+  /** Send files straight to one device here, browser to browser. Nothing goes to the server. */
+  sendTo(files: File[], peer: Peer) {
+    if (!this.supportsDirect()) return void this.toast(t.devices.noDirectHere);
+    if (peer.direct === false) return void this.toast(t.devices.noDirectThere(peer.name));
+    for (const f of files) void this.sendDirect(f, peer, false);
   }
 
   private async sendDirect(file: File, peer: Peer, fallback: boolean) {
@@ -695,6 +713,11 @@ export class Space {
     const file = this.received.get(id);
     if (!file) return;
     saveBlob(file, file.name);
+    this.markSaved(id);
+  }
+
+  /** Saved somewhere (download or Photos): no leave warning, no recovery on the next visit. */
+  markSaved(id: string) {
     this.setTransfer(id, { saved: true });
     void import('./direct').then((m) => m.forgetReceived(id));
   }
@@ -765,7 +788,13 @@ export class Space {
     }
     const name = this.displayName(item);
     const sink = await openSink(name, picker, item.id, this.displayMime(item));
-    const body = await this.openItemStream(item);
+    let body: Response | ReadableStream<Uint8Array>;
+    try {
+      body = await this.openItemStream(item);
+    } catch (e) {
+      await sink.abort().catch(() => {}); // don't leave an empty file where the person chose to save
+      throw e;
+    }
     const stream = body instanceof Response ? (body.body as ReadableStream<Uint8Array>) : body;
     const file = await pipeTo(stream, sink);
     if (file) saveBlob(file, name);
@@ -869,6 +898,18 @@ export class Space {
     }
   }
 
+  async rename(name: string): Promise<boolean> {
+    try {
+      const r = await this.socket.request<{ name: string }>({ t: 'device.rename', name });
+      setDeviceName(r.name);
+      this.store.set((s) => ({ me: { ...s.me, name: r.name } }));
+      this.toast(t.devices.renamed);
+      return true;
+    } catch (e) {
+      this.toast(this.errorText(e));
+      return false;
+    }
+  }
 
   // ───────────────────────── Wi-Fi resilience (§7.1) ─────────────────────────
 
@@ -913,6 +954,9 @@ export class Space {
     return location.origin;
   }
 }
+
+/** How long the "send this file?" prompt stays up; a little under the server's wait (KEY_WAIT_MS). */
+const KEY_ASK_MS = 55_000;
 
 function sortItems(items: Item[]): Item[] {
   return [...items].sort((a, b) => b.createdAt - a.createdAt);

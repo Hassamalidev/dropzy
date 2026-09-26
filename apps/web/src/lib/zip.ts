@@ -1,3 +1,5 @@
+import { stripUnsafe } from '@dropzy/shared';
+
 // "Download all" builds a ZIP in the browser with client-zip (no compression), loaded on demand (§9.8).
 
 export type ZipEntry = { name: string; size?: number; lastModified?: Date; input: () => Promise<Response | Blob | ReadableStream<Uint8Array>> };
@@ -15,7 +17,14 @@ export async function zipStream(entries: ZipEntry[]): Promise<ReadableStream<Uin
   return res.body;
 }
 
-function uniqueName(name: string, used: Set<string>): string {
+export function uniqueName(raw: string, used: Set<string>): string {
+  // Names come from other people: no folders, no "..", nothing an unzip tool could escape with.
+  // Also no control or bidi characters, no characters Windows can't use (":" from a Mac, say), and
+  // no leading/trailing dots or spaces — Windows' own unzip refuses such entries.
+  const name =
+    stripUnsafe(raw)
+      .replace(/[\\/<>:"|?*]/g, '_')
+      .replace(/^[.\s]+|[.\s]+$/g, '') || 'file';
   let n = name;
   let i = 1;
   while (used.has(n.toLowerCase())) {

@@ -8,9 +8,11 @@ export const t = {
   brand,
 
   // Global layout (§6.2)
-  topBar: 'No sign-up · No tracking · Everything deletes itself',
+  topBar: 'No sign-up · No tracking cookies · Everything deletes itself',
+  makers: 'Meet the makers',
   contact: 'Contact',
   requestFeature: 'Request a feature',
+  ogImageAlt: `${brand}: send files between your phone and computer in the browser`,
   skipToContent: 'Skip to content',
   themeToggle: 'Switch light or dark theme',
   nav: {
@@ -23,10 +25,13 @@ export const t = {
     privateLong: 'Private Share',
     roomLong: 'Create Room',
     joinLong: 'Join Room',
+    nearby: 'Nearby',
+    nearbyLong: 'Nearby Devices',
   },
   footer: {
     copyright: (year: number) => `© ${year} ${brand} · Everything you share here deletes itself.`,
     howItWorks: 'How it works',
+    guides: 'Guides',
     about: 'About',
     privacy: 'Privacy',
     terms: 'Terms',
@@ -66,8 +71,33 @@ export const t = {
 
   // Devices (§6.3.2)
   devices: {
-    arrived: (name: string, type: string) => `${name} (${type}) is here`,
+    arrived: (name: string, type: string) => (name === type ? `${name} is here` : `${name} (${type}) is here`),
+    tapToSend: 'Tap to send',
     cancel: 'Cancel',
+    title: 'Devices near you',
+    sub: 'Tap a device to send it files. They go straight from this browser to theirs, never through our servers.',
+    you: 'You',
+    tapToRename: 'Rename this device',
+    sendTo: (name: string) => `Send files to ${name}`,
+    searching: 'Looking for devices…',
+    empty: `No one yet. Open ${siteHost}/nearby on another phone or computer on this Wi‑Fi and it shows up here.`,
+    busyCount: (n: number) => `${n} devices on this network — too many to list here. Try Private Share instead.`,
+    cantReceive: 'Can’t receive directly',
+    noDirectHere: 'This browser can’t send files directly. Try Private Share instead.',
+    noDirectThere: (name: string) => `${name} can’t receive files directly. Try Private Share instead.`,
+    incoming: (name: string, file: string) => `${name} is sending you ${file}`,
+    dropHere: 'Drop to send',
+    renameTitle: 'Rename this device',
+    renameLabel: 'Device name',
+    renameHint: '1–24 characters, like “Sara’s iPhone”. Others here will see it.',
+    save: 'Save',
+    renamed: 'Name updated.',
+    hero: {
+      title: 'Send to a device nearby',
+      subtitle: 'Everyone on your Wi‑Fi with this page open shows up by name. Pick one and send.',
+    },
+    transfers: 'Sent and received',
+    otherNetwork: 'Not on the same Wi‑Fi? Use Private Share',
   },
 
   // Connect card (§6.3.3)
@@ -154,6 +184,8 @@ export const t = {
     tapToSave: 'Tap to save',
     preparing: (pct: number) => `Getting it ready… ${pct}%`,
     copyLink: 'Copy link',
+    keyAsk: (name: string) => `A device entered the code for ${name}. Send it the file?`,
+    keyAllow: 'Send',
     keySent: (name: string) => `Sent ${name} to a device that entered its code`,
     qr: 'QR code',
     qrTitle: 'Scan to download',
@@ -273,6 +305,7 @@ export const t = {
     spaceFull: 'This share is full. Delete a few items first.',
     busyBusyDirect: 'Sending directly is off on busy networks. Start a Private Share instead.',
     declined: 'The other device didn’t have room for that file.',
+    noRoomHere: 'Someone tried to send you a file that’s too big for this device.',
     generic: 'Something went wrong. Try again.',
   },
 
@@ -300,6 +333,7 @@ export const t = {
     digit: (i: number) => `Digit ${i} of 6`,
     button: 'Join',
     joining: 'Joining…',
+    incomplete: 'Enter all 6 digits.',
     orCreate: 'No code? Create a room',
     fileTitle: 'Got a file code?',
     fileLabel: 'File code',
@@ -315,8 +349,10 @@ export const t = {
     download: 'Download',
     report: 'Report',
     gone: 'This file is no longer available.',
-    asking: 'Getting the key from the device that shared it…',
-    senderOffline: 'This is a Private Share file. Open that Private Share on the device that shared it, then enter the code again.',
+    asking: 'This file is private. Tap “Send” on the device that shared it…',
+    senderOffline:
+      'This is a Private Share file. Keep that Private Share open on the device that shared it, tap “Send” when it asks, then try again.',
+    retry: 'Try again',
     openShare: `Open ${brand}`,
   },
 

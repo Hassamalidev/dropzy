@@ -3,6 +3,23 @@ import { describe, expect, it } from 'vitest';
 import { Client, cid, post } from './helpers';
 
 describe('private share', () => {
+  it('creates a session under the token a short link derives, once', async () => {
+    const token = 'A'.repeat(42) + 'Q';
+    const first = await post('/v1/sessions', { token });
+    expect(first.body.ok).toBe(true);
+    expect(first.body.data.token).toBe(token);
+    const again = await post('/v1/sessions', { token });
+    expect(again.status).toBe(409);
+    expect(again.body.ok).toBe(false);
+    // The taken share is left as it was.
+    const a = await Client.open(`scope=ses&id=${token}`);
+    expect((await a.hello()).space.expiresAt).toBe(first.body.data.expiresAt);
+    const bad = await post('/v1/sessions', { token: 'short' });
+    expect(bad.status).toBe(400);
+    expect((await post('/v1/sessions', { token, extra: 1 })).status).toBe(400);
+    expect((await post('/v1/sessions', null)).status).toBe(400);
+  });
+
   it('creates a session and shares text between two devices', async () => {
     const { body } = await post('/v1/sessions');
     expect(body.ok).toBe(true);

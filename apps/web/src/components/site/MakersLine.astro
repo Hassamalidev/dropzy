@@ -1,0 +1,37 @@
+---
+import { FOUNDER, HELPERS } from '../../lib/team';
+import { t } from '../../strings/en';
+import Icon from './Icon.astro';
+
+// Left side of the top bar: the founder's face up front, helpers small behind, then
+// "Meet the makers →" and the promise line.
+---
+
+<p class="flex min-w-0 items-center gap-3">
+  <a href="/about" class="group inline-flex shrink-0 items-center gap-2 font-medium text-slate-900 dark:text-white">
+    <span class="flex items-center">
+      <img
+        src={FOUNDER.photo}
+        alt=""
+        width="22"
+        height="22"
+        class="relative z-10 size-[22px] rounded-full object-cover ring-2 ring-accent ring-offset-1 ring-offset-canvas dark:ring-offset-night"
+      />
+      {
+        HELPERS.map((m, i) => (
+          <img
+            src={m.photo}
+            alt=""
+            width="16"
+            height="16"
+            style={`z-index:${9 - i}`}
+            class="relative -ml-1 size-[16px] rounded-full border-2 border-canvas object-cover dark:border-night"
+          />
+        ))
+      }
+    </span>
+    <span class="underline decoration-slate-300 underline-offset-4 group-hover:decoration-accent dark:decoration-slate-600">{t.makers}</span>
+    <Icon name="arrowRight" size={13} class="transition-transform group-hover:translate-x-0.5" />
+  </a>
+  <span class="hidden truncate sm:inline">{t.topBar}</span>
+</p>

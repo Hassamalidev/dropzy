@@ -40,6 +40,7 @@ export default function SingleFile() {
   const [key, setKey] = useState(keyFromHash); // itemRoot for Private Share links (§10)
   const [resolved, setResolved] = useState<Resolved | null>(null);
   const [auto] = useState(takeAutoDownload); // before any early return: it reads the URL once
+  const [attempt, setAttempt] = useState(0);
   const start = useRef<(() => void) | null>(null);
   const fired = useRef(false);
 
@@ -48,6 +49,7 @@ export default function SingleFile() {
       setState('gone');
       return;
     }
+    setState('loading');
     api
       .fileMeta(ref)
       .then(async (m) => {
@@ -59,11 +61,7 @@ export default function SingleFile() {
         }
         let root = key;
         if (!root) {
-          // Opened from a file code: ask a device still open in the share for this file's key.
-          if (!auto) {
-            setState('missing_key');
-            return;
-          }
+          // Opened from a file code (or reloaded after): ask a device still open in the share for this file's key.
           setState('asking');
           try {
             const { keys, pub } = await newRelayKeys();
@@ -88,7 +86,7 @@ export default function SingleFile() {
       .catch((e) => setState(e instanceof HttpError && e.code === 'at_capacity' ? 'capacity' : e instanceof HttpError && e.code === 'not_found' ? 'gone' : 'error'));
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
-  }, [ref]);
+  }, [ref, attempt]);
 
   useEffect(() => {
     if (!auto || state !== 'ready' || fired.current) return;
@@ -104,10 +102,12 @@ export default function SingleFile() {
       </Card>
     );
   }
-  if (state === 'offline') return <End text={t.single.senderOffline} />;
+  const retry = () => setAttempt((n) => n + 1);
+  if (state === 'offline') return <End text={t.single.senderOffline} onRetry={retry} />;
   if (state === 'capacity') return <End text={t.moments.atCapacity(nextUtcMidnight())} />;
   if (state === 'missing_key') return <End text={t.moments.missingKey} />;
-  if (state === 'gone' || !meta || !ref || !resolved) return <End text={state === 'error' ? t.starting.failed : t.single.gone} />;
+  if (state === 'error') return <End text={t.starting.failed} onRetry={retry} />;
+  if (state === 'gone' || !meta || !ref || !resolved) return <End text={t.single.gone} />;
 
   const [base, ext] = splitName(resolved.name);
 
@@ -121,17 +121,25 @@ export default function SingleFile() {
         setMsg(t.moments.tooBigIphone);
         return;
       }
-      const { url } = await api.fileDownload(ref);
       if (meta.e2ee && key) {
-        const { content } = await fileKeys(key);
-        const res = await fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer' });
-        if (!res.ok || !res.body) throw new Error('download');
+        // Where to save comes first: cancelling that dialog must not use up a one-download file.
         const itemId = ref.split('.')[1];
         const sink = await openSink(resolved.name, picker, itemId, resolved.mime);
-        const file = await pipeTo(res.body.pipeThrough(decryptStream(itemId, content, meta.size)), sink);
+        let body: ReadableStream<Uint8Array>;
+        try {
+          const { url } = await api.fileDownload(ref);
+          const { content } = await fileKeys(key);
+          const res = await fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer' });
+          if (!res.ok || !res.body) throw new Error('download');
+          body = res.body.pipeThrough(decryptStream(itemId, content, meta.size));
+        } catch (e) {
+          await sink.abort();
+          throw e;
+        }
+        const file = await pipeTo(body, sink);
         if (file) saveBlob(file, resolved.name);
       } else {
-        clickLink(url);
+        clickLink((await api.fileDownload(ref)).url);
       }
       if (meta.burn) setState('gone');
     } catch (e) {
@@ -229,11 +237,16 @@ function Card({ children }: { children: React.ReactNode }) {
   return <section className="card mx-auto my-10 flex max-w-md flex-col items-center gap-3 p-8 text-center">{children}</section>;
 }
 
-function End({ text }: { text: string }) {
+function End({ text, onRetry }: { text: string; onRetry?: () => void }) {
   return (
     <Card>
       <p className="text-lg text-slate-800 dark:text-slate-100">{text}</p>
-      <a href="/" className="btn-primary">
+      {onRetry && (
+        <button type="button" className="btn-primary" onClick={onRetry}>
+          {t.single.retry}
+        </button>
+      )}
+      <a href="/" className={onRetry ? 'link text-sm' : 'btn-primary'}>
         {t.single.openShare}
       </a>
     </Card>

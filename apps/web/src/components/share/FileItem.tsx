@@ -84,6 +84,7 @@ export function FileItem({ row }: { row: FileRow }) {
                 ready={space.received.get(transfer.id)}
                 load={async () => space.received.get(transfer.id) as File}
                 onError={(m) => space.toast(m)}
+                onSaved={() => space.markSaved(transfer.id)}
               />
               <button
                 type="button"

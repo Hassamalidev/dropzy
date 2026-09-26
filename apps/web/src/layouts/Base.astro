@@ -3,6 +3,7 @@ import BottomNav from '../components/site/BottomNav.astro';
 import FeatureDialog from '../components/site/FeatureDialog.astro';
 import Footer from '../components/site/Footer.astro';
 import Header from '../components/site/Header.astro';
+import MakersLine from '../components/site/MakersLine.astro';
 import '../styles/global.css';
 import { FAVICON, type NavKey, SITE_URL } from '../lib/site';
 import { t } from '../strings/en';
@@ -43,7 +44,16 @@ const ogImage = `${SITE_URL}/og.png`;
     <link rel="icon" href={FAVICON} type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icon.svg" />
-    {noindex ? <meta name="robots" content="noindex, nofollow" /> : <link rel="canonical" href={canonical} />}
+    {
+      noindex ? (
+        <meta name="robots" content="noindex, nofollow" />
+      ) : (
+        <>
+          <link rel="canonical" href={canonical} />
+          <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+        </>
+      )
+    }
     {
       !noindex && (
         <>
@@ -52,11 +62,16 @@ const ogImage = `${SITE_URL}/og.png`;
           <meta property="og:title" content={fullTitle} />
           <meta property="og:description" content={description} />
           <meta property="og:url" content={canonical} />
+          <meta property="og:locale" content="en_US" />
           <meta property="og:image" content={ogImage} />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta property="og:image:alt" content={t.ogImageAlt} />
           <meta name="twitter:card" content="summary_large_image" />
           <meta name="twitter:title" content={fullTitle} />
           <meta name="twitter:description" content={description} />
           <meta name="twitter:image" content={ogImage} />
+          <meta name="twitter:image:alt" content={t.ogImageAlt} />
         </>
       )
     }
@@ -83,7 +98,7 @@ const ogImage = `${SITE_URL}/og.png`;
     >
     <div class="border-b border-slate-200 bg-canvas text-xs text-slate-500 dark:border-night-line dark:bg-night dark:text-slate-400">
       <div class="mx-auto flex max-w-[1160px] items-center justify-between gap-3 px-4 py-1.5">
-        <p class="truncate">{t.topBar}</p>
+        <MakersLine />
         <div class="flex shrink-0 items-center gap-3">
           <a href="/contact" class="hidden hover:text-slate-900 sm:inline dark:hover:text-white">{t.contact}</a>
           <button type="button" data-feature-open class="cursor-pointer font-medium text-accent-ink hover:underline">

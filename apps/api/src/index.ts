@@ -91,6 +91,11 @@ app.get('/v1/ws', async (c) => {
     net = await networkId(c.env.IP_HASH_SECRET, clientIp(c.req.raw));
     name = `net:${net}`;
     kind = 'net';
+  } else if (scope === 'nearby') {
+    // The Nearby page: same network, its own space, so only devices with that page open are listed.
+    net = await networkId(c.env.IP_HASH_SECRET, clientIp(c.req.raw));
+    name = `near:${net}`;
+    kind = 'net';
   } else if (scope === 'pass') {
     net = (await resolvePass(c.env, id)) ?? '';
     if (!net) return closeWith(CLOSE.FORBIDDEN, 'forbidden');
@@ -125,14 +130,21 @@ function resolvePass(env: Env, pass: string): Promise<string | null> {
 
 // ───────────────────────── spaces ─────────────────────────
 
+// Short links derive the token from a secret only the devices know, so the browser sends it (§10).
+// Without one (older clients) the server picks it.
+const SessionBody = z.strictObject({ token: z.string().refine(isToken).optional() });
+
 app.post('/v1/sessions', async (c) => {
   if (!originOk(c)) return fail(c, 'forbidden', 403);
   if (await limited(c, c.env.RL_CREATE)) return fail(c, 'rate_limited', 429);
+  const body = await readJson(c, SessionBody);
+  if (!body) return fail(c, 'bad_request', 400);
   try {
-    const token = randomToken();
+    const token = body.token ?? randomToken();
     const stub = c.env.SPACE.get(c.env.SPACE.idFromName(`ses:${token}`));
-    const { expiresAt } = await stub.init('ses');
-    return ok(c, { token, expiresAt });
+    const made = await stub.init('ses');
+    if (!made) return fail(c, 'bad_request', 409);
+    return ok(c, { token, expiresAt: made.expiresAt });
   } catch (err) {
     if (isCapacityError(err)) return fail(c, 'at_capacity', 503);
     throw err;
@@ -148,7 +160,9 @@ app.post('/v1/rooms', async (c) => {
     const provisional = Date.now() + 25 * 3600_000;
     const code = await dir.allocateRoom(token, provisional);
     const stub = c.env.SPACE.get(c.env.SPACE.idFromName(`room:${token}`));
-    const { expiresAt } = await stub.init('room', code);
+    const made = await stub.init('room', code);
+    if (!made) throw new Error('room exists'); // fresh random token: never happens
+    const { expiresAt } = made;
     await dir.updateRoom(code, { expiresAt });
     return ok(c, { token, code, expiresAt });
   } catch (err) {

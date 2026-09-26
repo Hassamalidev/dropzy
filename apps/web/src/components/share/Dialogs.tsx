@@ -22,6 +22,7 @@ export function Dialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef<Element | null>(null);
+  const downOnBackdrop = useRef(false);
 
   useEffect(() => {
     const d = ref.current;
@@ -34,6 +35,9 @@ export function Dialog({
     }
   }, [open]);
 
+  // Callers unmount the dialog to close it (× button, Cancel…), which fires no close event.
+  useEffect(() => () => (opener.current as HTMLElement | null)?.focus?.(), []);
+
   return (
     <dialog
       ref={ref}
@@ -42,8 +46,12 @@ export function Dialog({
         onClose();
         (opener.current as HTMLElement | null)?.focus?.();
       }}
+      // Only a press that starts and ends on the backdrop closes it — not a text selection dragged out.
+      onPointerDown={(e) => {
+        downOnBackdrop.current = e.target === ref.current;
+      }}
       onClick={(e) => {
-        if (e.target === ref.current) onClose();
+        if (e.target === ref.current && downOnBackdrop.current) onClose();
       }}
       className={`m-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-800 dark:border-night-line dark:bg-night-card dark:text-slate-100`}
       style={{ width: `min(92vw, ${wide ? 560 : 420}px)` }}

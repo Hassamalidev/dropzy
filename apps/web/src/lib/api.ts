@@ -33,7 +33,7 @@ async function call<T>(method: 'GET' | 'POST', path: string, body?: unknown, hea
 }
 
 export const api = {
-  createSession: () => call<CreateSessionRes>('POST', '/v1/sessions'),
+  createSession: (token: string) => call<CreateSessionRes>('POST', '/v1/sessions', { token }),
   createRoom: () => call<CreateRoomRes>('POST', '/v1/rooms'),
   join: (code: string) => call<JoinRes>('POST', '/v1/join', { code }),
   fileMeta: (ref: string) => call<FileMeta>('GET', `/v1/files/${ref}`),

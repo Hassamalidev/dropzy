@@ -1,0 +1,38 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { breadcrumbs } from '../../lib/seo';
+import { SITE_URL } from '../../lib/site';
+
+const guides = (await getCollection('guides')).sort((a, b) => b.data.updated.getTime() - a.data.updated.getTime() || a.data.title.localeCompare(b.data.title));
+const list = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  itemListElement: guides.map((g, i) => ({ '@type': 'ListItem', position: i + 1, url: `${SITE_URL}/guides/${g.id}`, name: g.data.title })),
+};
+---
+
+<Base
+  title="Guides — sharing files between phone and computer"
+  description="Step-by-step guides for moving photos, videos, documents and text between iPhone, Android, Windows and Mac, free and without an app."
+  jsonLd={[list, breadcrumbs([['Home', ''], ['Guides', '/guides']])]}
+>
+  <section class="mx-auto max-w-3xl py-8">
+    <h1 class="text-3xl font-bold tracking-tight text-balance text-slate-900 sm:text-4xl dark:text-white">Guides</h1>
+    <p class="mt-3 text-lg text-slate-600 dark:text-slate-400">
+      How to move files and text between your devices with Dropzy, whichever phone or computer you have.
+    </p>
+    <ul class="mt-8 flex flex-col gap-3">
+      {
+        guides.map((g) => (
+          <li>
+            <a href={`/guides/${g.id}`} class="card flex flex-col gap-1.5 p-5 transition-colors hover:border-accent/60">
+              <h2 class="font-semibold text-slate-900 dark:text-white">{g.data.title}</h2>
+              <p class="text-sm text-slate-600 dark:text-slate-400">{g.data.description}</p>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+</Base>

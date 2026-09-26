@@ -1,7 +1,8 @@
 // Realtime protocol shared by the web app and the Worker (SPEC §8.2).
 
 export type DeviceType = 'iphone' | 'ipad' | 'android' | 'windows' | 'mac' | 'linux' | 'chromeos' | 'other';
-export type Peer = { peerId: string; name: string; type: DeviceType };
+// direct: whether the device can receive browser-to-browser (§9.2).
+export type Peer = { peerId: string; name: string; type: DeviceType; direct?: boolean };
 export type PeerList = Peer[] | { count: number };
 
 export type SpaceKind = 'net' | 'ses' | 'room';

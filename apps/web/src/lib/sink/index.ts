@@ -21,7 +21,9 @@ export function canPick(): boolean {
 export function startPicker(name: string): Promise<SaveHandle> | null {
   if (!canPick()) return null;
   try {
-    return (window as any).showSaveFilePicker({ suggestedName: name }) as Promise<SaveHandle>;
+    const p = (window as any).showSaveFilePicker({ suggestedName: name }) as Promise<SaveHandle>;
+    p.catch(() => {}); // a cancel is handled where it's awaited (openSink), maybe after other awaits
+    return p;
   } catch {
     return null;
   }
@@ -134,7 +136,8 @@ export async function pipeTo(stream: ReadableStream<Uint8Array>, sink: Sink, onB
     }
     return await sink.close();
   } catch (err) {
-    await sink.abort();
+    void reader.cancel().catch(() => {}); // stop the download too
+    await sink.abort().catch(() => {}); // keep the original error
     throw err;
   }
 }

@@ -1,6 +1,6 @@
 import { Loader2 } from 'lucide-react';
 import { useDeferredValue, useEffect, useState } from 'react';
-import { keyFromHash } from '../../lib/crypto/keys';
+import { fromShareSecret, keyFromHash, secretFromHash } from '../../lib/crypto/keys';
 import { nextUtcMidnight } from '../../lib/format';
 import { initPasteShortcut } from '../../lib/shortcuts';
 import { type Mode, Space } from '../../lib/space';
@@ -23,12 +23,38 @@ function tokenFromPath(): string | null {
   return m ? m[1] : null;
 }
 
+type Link = { token: string | null; key: Uint8Array<ArrayBuffer> | null };
+
+/** Private Share: the short /s#secret link, or the older /s/{token}#k={key}. */
+async function privateLink(): Promise<Link> {
+  const secret = secretFromHash();
+  if (secret) return fromShareSecret(secret);
+  return { token: tokenFromPath(), key: keyFromHash() };
+}
+
 export default function ShareApp({ mode }: { mode: Mode }) {
+  // Short links need a moment (async key derivation) before the space can start.
+  const [link, setLink] = useState<Link | null>(() => (mode === 'ses' ? null : { token: mode === 'wifi' ? null : tokenFromPath(), key: null }));
+  useEffect(() => {
+    if (!link) void privateLink().then(setLink, () => setLink({ token: null, key: null }));
+  }, [link]);
+  if (!link) return <Connecting />;
+  return <Live mode={mode} link={link} />;
+}
+
+function Connecting() {
+  return (
+    <div className="card mt-8 flex items-center justify-center gap-2 p-10 text-slate-500" role="status">
+      <Loader2 size={18} className="animate-spin" aria-hidden />
+      {t.starting.connecting}
+    </div>
+  );
+}
+
+function Live({ mode, link }: { mode: Mode; link: Link }) {
   const [space] = useState(() => {
-    const token = mode === 'wifi' ? null : tokenFromPath();
-    const key = mode === 'ses' ? keyFromHash() : null;
     if (mode === 'wifi') Space.adoptPass();
-    return new Space(mode, token, key);
+    return new Space(mode, link.token, link.key);
   });
 
   useEffect(() => {
@@ -74,7 +100,8 @@ function Screen({ mode }: { mode: Mode }) {
         <div className="flex flex-col gap-4">
           <ExpiryBanner />
           <BusyBanner />
-          <StatusCard />
+          {/* Private Share: the files and text come first; the link and QR sit under them. */}
+          {mode !== 'ses' && <StatusCard />}
           <PassNotice />
           {(mode === 'ses' || hasItems || query) && (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -87,6 +114,7 @@ function Screen({ mode }: { mode: Mode }) {
             <FilesPanel query={q} />
             <TextPanel query={q} />
           </div>
+          {mode === 'ses' && <StatusCard />}
           <InfoRow mode={mode} />
         </div>
       )}

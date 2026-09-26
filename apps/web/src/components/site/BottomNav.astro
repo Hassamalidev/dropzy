@@ -12,6 +12,7 @@ const items = [
   { key: 'private', href: '/private', icon: 'lock', label: t.nav.private },
   { key: 'room', href: '/room/new', icon: 'users', label: t.nav.room },
   { key: 'join', href: '/join', icon: 'login', label: t.nav.join },
+  { key: 'nearby', href: '/nearby', icon: 'radar', label: t.nav.nearby },
 ] as const;
 ---
 
@@ -19,7 +20,7 @@ const items = [
   aria-label={t.nav.label}
   class="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] sm:hidden dark:border-night-line dark:bg-night"
 >
-  <ul class="grid grid-cols-4">
+  <ul class="grid grid-cols-5">
     {
       items.map((i) => (
         <li>

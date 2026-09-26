@@ -30,7 +30,21 @@ export async function runUpload(opts: {
   phone: boolean;
   onProgress: Progress;
 }): Promise<void> {
-  const { socket, init, source, signal } = opts;
+  // Our own signal too, so one lane giving up stops the others.
+  const stop = new AbortController();
+  const relay = () => stop.abort();
+  if (opts.signal.aborted) stop.abort();
+  else opts.signal.addEventListener('abort', relay, { once: true });
+  try {
+    await upload(opts, stop);
+  } finally {
+    opts.signal.removeEventListener('abort', relay); // the caller's signal may outlive this upload
+  }
+}
+
+async function upload(opts: Omit<Parameters<typeof runUpload>[0], 'signal'>, stop: AbortController): Promise<void> {
+  const { socket, init, source } = opts;
+  const signal = stop.signal;
   let lastPct = -10;
   let lastSent = 0;
   const report = (loaded: number) => {
@@ -112,7 +126,12 @@ export async function runUpload(opts: {
   };
 
   const lanes = Math.min(opts.phone ? 2 : 3, partCount);
-  await Promise.all(Array.from({ length: lanes }, worker));
+  try {
+    await Promise.all(Array.from({ length: lanes }, worker));
+  } catch (err) {
+    stop.abort();
+    throw err;
+  }
   etags.sort((a, b) => a.n - b.n);
   await socket.request({ t: 'upload.complete', id: init.id, parts: etags });
 }

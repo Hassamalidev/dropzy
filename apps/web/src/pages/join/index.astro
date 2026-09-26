@@ -11,6 +11,7 @@ const msg = {
   failed: t.starting.failed,
   joining: t.join.joining,
   join: t.join.button,
+  incomplete: t.join.incomplete,
 };
 ---
 
@@ -90,7 +91,12 @@ const msg = {
     };
     async function submit() {
       const c = code();
-      if (busy || !/^\d{6}$/.test(c)) return;
+      if (busy) return;
+      if (!/^\d{6}$/.test(c)) {
+        err.textContent = msg.incomplete;
+        (boxes.find((b) => !b.value) ?? boxes[0]).focus();
+        return;
+      }
       busy = true;
       btn.textContent = msg.joining;
       err.textContent = '';
@@ -124,6 +130,15 @@ const msg = {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       submit();
+    });
+    // Back from the room restores this page mid-join; make it usable again.
+    addEventListener('pageshow', (e) => {
+      if (!e.persisted) return;
+      busy = false;
+      btn.textContent = msg.join;
+      err.textContent = '';
+      boxes.forEach((b) => (b.value = ''));
+      boxes[0].focus();
     });
     // /j/{code} pre-fills and submits (§7.3).
     const m = /^\/j\/(\d{6})\/?$/.exec(location.pathname);

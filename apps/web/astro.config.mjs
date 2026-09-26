@@ -4,11 +4,27 @@ import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
+import fs from 'node:fs';
 
 const site = process.env.PUBLIC_SITE_URL || 'https://dropzy.app';
 
-// App shells and private pages are excluded from the sitemap (§15).
-const PRIVATE = ['/s/', '/r/', '/f/', '/j/', '/join', '/private', '/room/', '/admin'];
+// App shells and private pages are excluded from the sitemap (§15). A prefix matches the path
+// itself and anything under it: '/s' covers /s and /s/{token}.
+const PRIVATE = ['/s', '/r', '/f', '/j', '/join', '/private', '/room', '/admin'];
+const isPrivate = (/** @type {string} */ path) => PRIVATE.some((p) => path === p || path.startsWith(`${p}/`));
+
+/** Guides carry their own "updated" date; everything else gets the build date. */
+const guideDates = Object.fromEntries(
+  fs
+    .readdirSync(new URL('./src/content/guides/', import.meta.url))
+    .filter((f) => f.endsWith('.mdx'))
+    .map((f) => {
+      const m = /^updated:\s*['"]?([^'"\s]+)/m.exec(fs.readFileSync(new URL(`./src/content/guides/${f}`, import.meta.url), 'utf8'));
+      const d = m ? new Date(m[1]) : null;
+      // A date that doesn't parse falls back to the build date rather than failing the build.
+      return [`/guides/${f.replace(/\.mdx$/, '')}`, d && !Number.isNaN(d.getTime()) ? d.toISOString() : undefined];
+    }),
+);
 
 /** Mirror vercel.json rewrites in `astro dev` so /s/{token} etc. load their static shells. */
 /** @type {import('astro').AstroIntegration} */
@@ -36,7 +52,10 @@ export default defineConfig({
     devRewrites,
     react(),
     mdx(),
-    sitemap({ filter: (page) => !PRIVATE.some((p) => new URL(page).pathname.startsWith(p)) }),
+    sitemap({
+      filter: (page) => !isPrivate(new URL(page).pathname),
+      serialize: (item) => ({ ...item, lastmod: guideDates[new URL(item.url).pathname] ?? new Date().toISOString() }),
+    }),
   ],
   vite: {
     plugins: [tailwindcss()],

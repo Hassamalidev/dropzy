@@ -1,6 +1,8 @@
+import { SEARCH_ALPHABET } from '@dropzy/shared';
 import { KeyRound } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { HttpError, api } from '../../lib/api';
+import { nextUtcMidnight } from '../../lib/format';
 import { t } from '../../strings/en';
 
 /**
@@ -11,6 +13,15 @@ export function FileCodeBox() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+
+  // Coming back with the Back button restores this page as it was left: mid-navigation.
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) setBusy(false);
+    };
+    addEventListener('pageshow', onShow);
+    return () => removeEventListener('pageshow', onShow);
+  }, []);
 
   return (
     <form
@@ -26,7 +37,15 @@ export function FileCodeBox() {
           location.assign(`/f/${r.ref}?dl=1`);
         } catch (err) {
           const k = err instanceof HttpError ? err.code : '';
-          setMsg(k === 'rate_limited' ? t.moments.rateLimited : k === 'not_found' ? t.join.fileNotFound : t.starting.failed);
+          setMsg(
+            k === 'rate_limited'
+              ? t.moments.rateLimited
+              : k === 'not_found'
+                ? t.join.fileNotFound
+                : k === 'at_capacity'
+                  ? t.moments.atCapacity(nextUtcMidnight())
+                  : t.starting.failed,
+          );
           setBusy(false);
         }
       }}
@@ -38,7 +57,9 @@ export function FileCodeBox() {
           value={code}
           onChange={(e) => {
             setMsg('');
-            setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4));
+            // Codes never use 0, 1, I or O, so only keep characters a code can have.
+            const v = e.target.value.toUpperCase();
+            setCode([...v].filter((c) => SEARCH_ALPHABET.includes(c)).join('').slice(0, 4));
           }}
           placeholder={t.join.fileTitle}
           autoComplete="off"

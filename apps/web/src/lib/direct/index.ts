@@ -69,11 +69,14 @@ export class Direct {
   }
 
   private async conn(peerId: string): Promise<PeerConn> {
+    // Await first: nothing may run between the map check and set, or two sends to one peer
+    // started together would each build their own connection.
+    const ice = await this.iceServers();
     const have = this.conns.get(peerId);
     if (have && !have.closed) return have;
     const me = this.host.me();
     if (!me) throw new DirectError('closed');
-    const c = new PeerConn(peerId, me, (d) => this.host.signal(peerId, d), await this.iceServers());
+    const c = new PeerConn(peerId, me, (d) => this.host.signal(peerId, d), ice);
     c.onChannel = (ch) => this.incoming(ch, peerId);
     c.onClose = () => {
       if (this.conns.get(peerId) === c) this.conns.delete(peerId);

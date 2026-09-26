@@ -5,7 +5,25 @@ import { THUMB_MAX_BYTES } from '@dropzy/shared';
 
 const EDGE = 256;
 
+// Decoding a full-size photo takes ~200 MB; dropping 20 at once must not decode them all together.
+const MAX_AT_ONCE = 2;
+let running = 0;
+const queue: (() => void)[] = [];
+
 export async function makeThumb(file: File): Promise<string | undefined> {
+  // A finishing thumb hands its slot straight to the next waiter, so a new call can't slip in between.
+  if (running >= MAX_AT_ONCE) await new Promise<void>((r) => queue.push(r));
+  else running++;
+  try {
+    return await thumbOf(file);
+  } finally {
+    const next = queue.shift();
+    if (next) next();
+    else running--;
+  }
+}
+
+async function thumbOf(file: File): Promise<string | undefined> {
   try {
     if (file.type.startsWith('image/')) {
       const bmp = await createImageBitmap(file);

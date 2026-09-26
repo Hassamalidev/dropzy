@@ -9,6 +9,26 @@ export function newSpaceKey(): string {
   return b64url(randomBytes(32));
 }
 
+// A Private Share link carries one 128-bit secret: /s#<22 chars>. Both the share's id (which the
+// server sees) and K (which it never does) come from it, so the link needs nothing else.
+
+export function newShareSecret(): string {
+  return b64url(randomBytes(16));
+}
+
+/** Read the secret from a short link's fragment (`#<22 chars>`). Null for anything else. */
+export function secretFromHash(hash = location.hash): string | null {
+  const m = /^#([A-Za-z0-9_-]{22})$/.exec(hash);
+  return m ? m[1] : null;
+}
+
+/** token = b64url(HKDF(S, "dz1 share", "id")), K = HKDF(S, "dz1 share", "key"). One-way: the token doesn't reveal S or K. */
+export async function fromShareSecret(secret: string): Promise<{ token: string; key: Uint8Array<ArrayBuffer> }> {
+  const s = fromB64url(secret);
+  const [id, key] = await Promise.all([hkdfBits(s, 'dz1 share', 'id'), hkdfBits(s, 'dz1 share', 'key')]);
+  return { token: b64url(id), key };
+}
+
 /** Read `#k=` from the fragment. Returns null when missing or malformed. */
 export function keyFromHash(hash = location.hash): Uint8Array<ArrayBuffer> | null {
   const m = /[#&]k=([A-Za-z0-9_-]{43})/.exec(hash);
