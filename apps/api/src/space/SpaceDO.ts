@@ -1,7 +1,9 @@
 import {
+  BURN_GRACE,
   CLOSE,
   type DeviceType,
   type ErrorCode,
+  type FileMeta,
   HOUR,
   type Item,
   MAX_ITEMS_PER_DEVICE,
@@ -15,20 +17,35 @@ import {
   SES_EXTEND,
   SES_MAX,
   SES_TTL,
+  SIGNED_GET_TTL,
+  SIGNED_PUT_TTL,
   STALE_SOCKET,
+  STALE_UPLOAD,
   type SpaceInfo,
   type SpaceKind,
   TEXT_MAX,
+  URL_BATCH,
+  type UploadInitAck,
   WIFI_ITEM_TTL,
   b64url,
   cleanDeviceName,
+  cleanName,
   cleanText,
+  contentDisposition,
+  estClassA,
+  isSinglePut,
+  partCount,
+  partSizeFor,
   randomDeviceName,
   randomSearchCode,
   randomToken,
+  safeContentType,
+  storedSize,
+  stripUnsafe,
 } from '@dropzy/shared';
 import { DurableObject } from 'cloudflare:workers';
-import { type Env, num, storageEnabled } from '../env';
+import { type Env, maxCloudBytes, num, storageEnabled } from '../env';
+import { R2 } from '../r2';
 import { type C2SMsg, C2SSchema } from './schema';
 
 // One Durable Object per Wi-Fi network / private share / room (§4.1).
@@ -114,6 +131,8 @@ export class SpaceDO extends DurableObject<Env> {
   private alarmCache: number | null | undefined;
   private lastSweep = 0;
   protected progress = new Map<string, number>();
+  private guardState: { v: 'on' | 'paused'; at: number } | null = null;
+  private r2Client: R2 | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -213,7 +232,40 @@ export class SpaceDO extends DurableObject<Env> {
   }
 
   protected uploadsState(): SpaceInfo['uploads'] {
-    return storageEnabled(this.env) ? 'on' : 'off';
+    if (!storageEnabled(this.env)) return 'off';
+    return this.guardState?.v === 'paused' ? 'paused' : 'on';
+  }
+
+  protected guard() {
+    return this.env.GUARD.get(this.env.GUARD.idFromName('guard'));
+  }
+
+  protected r2(): R2 {
+    this.r2Client ??= new R2(this.env);
+    return this.r2Client;
+  }
+
+  /** Refresh the cost-guard status at most once a minute (§14.4). */
+  protected async refreshUploads() {
+    if (!storageEnabled(this.env)) return;
+    const now = Date.now();
+    if (this.guardState && now - this.guardState.at < 60_000) return;
+    const before = this.uploadsState();
+    try {
+      this.guardState = { v: await this.guard().status(), at: now };
+    } catch {
+      return;
+    }
+    if (before !== this.uploadsState() && this.sockets().length) this.broadcastSpace();
+  }
+
+  protected setPaused() {
+    this.guardState = { v: 'paused', at: Date.now() };
+    this.broadcastSpace();
+  }
+
+  protected broadcastSpace() {
+    for (const { ws, att } of this.sockets()) this.send(ws, { t: 'space', space: this.spaceInfo(att) });
   }
 
   protected spaceInfo(att?: Att): SpaceInfo {
@@ -365,8 +417,259 @@ export class SpaceDO extends DurableObject<Env> {
   }
 
   /** Extension point for uploads, passes and search (later phases). */
-  protected async handleMore(_ws: WebSocket, _att: Att, _msg: C2SMsg): Promise<unknown> {
+  protected async handleMore(ws: WebSocket, att: Att, msg: C2SMsg): Promise<unknown> {
+    switch (msg.t) {
+      case 'upload.init':
+        return this.onUploadInit(att, msg);
+      case 'upload.urls':
+        return this.onUploadUrls(att, msg);
+      case 'upload.progress':
+        this.onUploadProgress(att, msg);
+        return NO_ACK;
+      case 'upload.complete':
+        return this.onUploadComplete(att, msg);
+      case 'upload.abort':
+        return this.onUploadAbort(att, msg.id);
+      case 'download.url':
+        return this.downloadUrl(att, msg.id);
+      default:
+        return this.handleWifi(ws, att, msg);
+    }
+  }
+
+  /** Extension point: network passes and find-by-code (Wi-Fi resilience). */
+  protected async handleWifi(_ws: WebSocket, _att: Att, _msg: C2SMsg): Promise<unknown> {
     throw new ApiError('bad_request');
+  }
+
+  // ───────────────────────── uploads (§9.3) ─────────────────────────
+
+  private headersFor(row: Pick<ItemRow, 'e2ee' | 'mime' | 'name'>) {
+    return {
+      'content-type': row.e2ee ? 'application/octet-stream' : safeContentType(row.mime ?? undefined),
+      'content-disposition': contentDisposition(row.e2ee ? 'encrypted.bin' : (row.name ?? 'file')),
+    };
+  }
+
+  private stored(row: ItemRow) {
+    return storedSize(row.size ?? 0, !!row.e2ee);
+  }
+
+  private async uploadTargets(row: ItemRow): Promise<UploadInitAck> {
+    const key = row.storage_key as string;
+    if (!row.upload_id) {
+      const headers = this.headersFor(row);
+      return { id: row.id, mode: 'single', url: await this.r2().presignPut(key, headers, SIGNED_PUT_TTL), headers };
+    }
+    const count = partCount(this.stored(row), row.part_size as number);
+    const urls: Record<number, string> = {};
+    for (let n = 1; n <= Math.min(URL_BATCH, count); n++) {
+      urls[n] = await this.r2().presignPart(key, row.upload_id, n, SIGNED_PUT_TTL);
+    }
+    return { id: row.id, mode: 'multipart', partSize: row.part_size as number, partCount: count, urls };
+  }
+
+  private mine(att: Att, id: string): ItemRow {
+    const row = this.getItem(id);
+    if (!row || row.type !== 'file' || row.device !== att.deviceHash) throw new ApiError('not_found');
+    return row;
+  }
+
+  private async onUploadInit(att: Att, msg: Extract<C2SMsg, { t: 'upload.init' }>) {
+    const s = this.space() as SpaceRow;
+    if (!storageEnabled(this.env)) throw new ApiError('uploads_off');
+    await this.refreshUploads();
+    if (this.uploadsState() === 'paused') throw new ApiError('uploads_paused');
+    if (msg.size > maxCloudBytes(this.env)) throw new ApiError('too_large');
+    const e2ee = s.kind === 'ses';
+    if (msg.e2ee !== e2ee) throw new ApiError('bad_request');
+    if (e2ee ? !msg.encMeta || msg.name || msg.mime : !msg.name) throw new ApiError('bad_request');
+    if (msg.thumb && !validThumb(msg.thumb, e2ee)) throw new ApiError('bad_request');
+
+    const base = this.newItemBase(att, msg.cid);
+    if (base.existing) {
+      // A retried init: hand back fresh targets for the same upload.
+      if (base.existing.status !== 'uploading' || base.existing.type !== 'file') throw new ApiError('bad_request');
+      return this.uploadTargets(base.existing);
+    }
+
+    const stored = storedSize(msg.size, e2ee);
+    const res = await this.guard().reserve(att.ipHash, stored, estClassA(stored, e2ee));
+    if (!res.ok) {
+      if (res.error === 'uploads_paused') this.setPaused();
+      throw new ApiError(res.error);
+    }
+
+    const key = `f/${msg.cid}`;
+    const name = e2ee ? null : cleanName(msg.name as string);
+    const mime = e2ee ? null : stripUnsafe(msg.mime || 'application/octet-stream').slice(0, 255);
+    let uploadId: string | null = null;
+    let partSize: number | null = null;
+    try {
+      if (!isSinglePut(stored)) {
+        const h = this.headersFor({ e2ee: e2ee ? 1 : 0, mime, name });
+        uploadId = await this.r2().createMultipart(key, h['content-type'], h['content-disposition']);
+        partSize = partSizeFor(stored, e2ee);
+      }
+    } catch (err) {
+      await this.guard().release(stored, false);
+      throw err;
+    }
+    const del = base.net ? await this.makeDeleteToken() : null;
+    this.sql.exec(
+      `INSERT INTO items (id, type, cid, code, device, device_name, device_type, ip_hash, delete_hash,
+        created_at, expires_at, name, mime, size, enc_meta, thumb, e2ee, storage_key, upload_id, part_size, status, burn)
+        VALUES (?, 'file', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'uploading', ?)`,
+      msg.cid,
+      msg.cid,
+      base.code,
+      att.deviceHash as string,
+      att.name as string,
+      att.type as string,
+      att.ipHash,
+      del?.hash ?? null,
+      base.now,
+      base.expiresAt,
+      name,
+      mime,
+      msg.size,
+      msg.encMeta ?? null,
+      msg.thumb ?? null,
+      e2ee ? 1 : 0,
+      key,
+      uploadId,
+      partSize,
+      msg.burn ? 1 : 0,
+    );
+    const row = this.getItem(msg.cid) as ItemRow;
+    this.broadcastItem(row);
+    await this.scheduleAlarm();
+    return { ...(await this.uploadTargets(row)), deleteToken: del?.token };
+  }
+
+  private async onUploadUrls(att: Att, msg: Extract<C2SMsg, { t: 'upload.urls' }>) {
+    const row = this.mine(att, msg.id);
+    if (row.status !== 'uploading' || !row.upload_id) throw new ApiError('bad_request');
+    const count = partCount(this.stored(row), row.part_size as number);
+    const urls: Record<number, string> = {};
+    for (const n of msg.parts) {
+      if (n > count) throw new ApiError('bad_request');
+      urls[n] = await this.r2().presignPart(row.storage_key as string, row.upload_id, n, SIGNED_PUT_TTL);
+    }
+    return { urls };
+  }
+
+  private onUploadProgress(att: Att, msg: Extract<C2SMsg, { t: 'upload.progress' }>) {
+    const row = this.getItem(msg.id);
+    if (!row || row.device !== att.deviceHash || row.status !== 'uploading') return;
+    this.progress.set(row.id, Math.round(msg.pct));
+    this.broadcastItem(row, 'item.updated');
+  }
+
+  private async onUploadComplete(att: Att, msg: Extract<C2SMsg, { t: 'upload.complete' }>) {
+    const row = this.mine(att, msg.id);
+    if (row.status === 'ready') return { id: row.id };
+    const stored = this.stored(row);
+    const key = row.storage_key as string;
+    if (row.upload_id) {
+      const parts = [...(msg.parts ?? [])].sort((a, b) => a.n - b.n);
+      const count = partCount(stored, row.part_size as number);
+      if (parts.length !== count || parts.some((p, i) => p.n !== i + 1)) throw new ApiError('bad_request');
+      try {
+        await this.r2().completeMultipart(key, row.upload_id, parts);
+      } catch {
+        throw new ApiError('bad_request');
+      }
+    } else {
+      const head = await this.env.FILES.head(key);
+      if (!head || head.size !== stored) throw new ApiError('bad_request');
+    }
+    this.sql.exec("UPDATE items SET status = 'ready', upload_id = NULL WHERE id = ?", row.id);
+    this.progress.delete(row.id);
+    await this.guard().commit(stored);
+    this.broadcastItem(this.getItem(row.id) as ItemRow, 'item.updated');
+    return { id: row.id };
+  }
+
+  private async onUploadAbort(att: Att, id: string) {
+    const row = this.getItem(id);
+    if (!row || row.device !== att.deviceHash || row.status !== 'uploading') return { id };
+    await this.removeItems([row]);
+    await this.scheduleAlarm();
+    return { id };
+  }
+
+  /**
+   * A signed GET valid 15 min. The first download of a one-download item consumes it — except by
+   * the uploader's own device (§9.7).
+   */
+  protected async downloadUrl(att: Att | null, id: string): Promise<{ url: string }> {
+    const row = this.getItem(id);
+    const now = Date.now();
+    if (!row || row.type !== 'file' || row.status !== 'ready' || row.consumed_at || this.effectiveExpiry(row) <= now) {
+      throw new ApiError('not_found');
+    }
+    if (att && !this.canSee(att, row)) throw new ApiError('not_found');
+    if (!(await this.guard().classB())) {
+      this.setPaused();
+      throw new ApiError('uploads_paused');
+    }
+    const url = await this.r2().presignGet(row.storage_key as string, SIGNED_GET_TTL);
+    if (row.burn && row.device !== att?.deviceHash) {
+      this.sql.exec('UPDATE items SET consumed_at = ? WHERE id = ?', now, row.id);
+      this.broadcast({ t: 'item.removed', id: row.id });
+      await this.scheduleAlarm();
+    }
+    return { url };
+  }
+
+  // ───────────────────────── single-file page (RPC) ─────────────────────────
+
+  private fileRow(itemId: string): ItemRow | null {
+    const s = this.space();
+    const row = this.getItem(itemId);
+    if (!s || !row || row.type !== 'file' || row.status !== 'ready' || row.consumed_at) return null;
+    if (this.effectiveExpiry(row) <= Date.now()) return null;
+    return row;
+  }
+
+  async fileMeta(itemId: string): Promise<FileMeta | null> {
+    const r = this.fileRow(itemId);
+    if (!r) return null;
+    return {
+      name: r.name ?? undefined,
+      mime: r.mime ?? undefined,
+      size: r.size ?? 0,
+      encMeta: r.enc_meta ?? undefined,
+      thumb: r.thumb ?? undefined,
+      e2ee: !!r.e2ee,
+      from: { name: r.device_name, type: r.device_type },
+      createdAt: r.created_at,
+      expiresAt: this.effectiveExpiry(r),
+      burn: !!r.burn,
+    };
+  }
+
+  async fileDownload(itemId: string): Promise<{ url: string } | { error: ErrorCode }> {
+    if (!this.fileRow(itemId)) return { error: 'not_found' };
+    try {
+      return await this.downloadUrl(null, itemId);
+    } catch (err) {
+      return { error: err instanceof ApiError ? err.code : 'bad_request' };
+    }
+  }
+
+  /** For admin actions: who uploaded an item (IP hash only). */
+  async itemIpHash(itemId: string): Promise<string | null> {
+    return this.getItem(itemId)?.ip_hash ?? null;
+  }
+
+  async adminDelete(itemId: string): Promise<boolean> {
+    const row = this.getItem(itemId);
+    if (!row) return false;
+    await this.removeItems([row]);
+    await this.scheduleAlarm();
+    return true;
   }
 
   async webSocketClose(ws: WebSocket, code: number): Promise<void> {
@@ -427,6 +730,7 @@ export class SpaceDO extends DurableObject<Env> {
     }
     const s = this.space();
     if (!s) throw new ApiError('not_found');
+    await this.refreshUploads();
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg.deviceId));
     att.deviceHash = b64url(digest).slice(0, 16);
     att.name = cleanDeviceName(msg.name) ?? randomDeviceName();
@@ -643,7 +947,37 @@ export class SpaceDO extends DurableObject<Env> {
   }
 
   /** Extension point: delete R2 objects / abort uploads (uploads phase). */
-  protected async dropStorage(_rows: ItemRow[]): Promise<void> {}
+  protected async dropStorage(rows: ItemRow[]): Promise<void> {
+    const files = rows.filter((r) => r.storage_key);
+    if (!files.length) return;
+    let committed = 0;
+    let reserved = 0;
+    for (const r of files) {
+      if (r.status === 'uploading') {
+        reserved += this.stored(r);
+        if (r.upload_id) {
+          try {
+            await this.r2().abortMultipart(r.storage_key as string, r.upload_id);
+          } catch (err) {
+            console.error('abort multipart', (err as Error).message);
+          }
+        }
+      } else {
+        committed += this.stored(r);
+      }
+    }
+    try {
+      await this.env.FILES.delete(files.map((r) => r.storage_key as string));
+    } catch (err) {
+      console.error('r2 delete', (err as Error).message);
+    }
+    try {
+      if (committed) await this.guard().release(committed, true);
+      if (reserved) await this.guard().release(reserved, false);
+    } catch (err) {
+      console.error('guard release', (err as Error).message);
+    }
+  }
 
   // ───────────────────────── extend / lock ─────────────────────────
 
@@ -691,7 +1025,12 @@ export class SpaceDO extends DurableObject<Env> {
 
   /** Extension point: burn grace periods and stale uploads. */
   protected extraWakeTimes(): number[] {
-    return [];
+    const out: number[] = [];
+    const c = this.sql.exec<{ t: number | null }>('SELECT MIN(consumed_at) AS t FROM items WHERE consumed_at IS NOT NULL').one();
+    if (c.t) out.push(c.t + BURN_GRACE);
+    const u = this.sql.exec<{ t: number | null }>("SELECT MIN(created_at) AS t FROM items WHERE status = 'uploading'").one();
+    if (u.t) out.push(u.t + STALE_UPLOAD);
+    return out;
   }
 
   /** Single alarm set to the next expiry; only written when the time actually changes (§7.4). */
@@ -737,7 +1076,18 @@ export class SpaceDO extends DurableObject<Env> {
   }
 
   /** Extension point: burn items and stale uploads. */
-  protected async expireMore(_now: number): Promise<void> {}
+  protected async expireMore(now: number): Promise<void> {
+    // One-download items: delete the object after a 1-hour grace period (§9.7).
+    const burned = this.sql
+      .exec<ItemRow>('SELECT * FROM items WHERE consumed_at IS NOT NULL AND consumed_at <= ?', now - BURN_GRACE)
+      .toArray();
+    await this.removeItems(burned, false);
+    // Abort multipart uploads older than 2 h (§7.4).
+    const stale = this.sql
+      .exec<ItemRow>("SELECT * FROM items WHERE status = 'uploading' AND created_at <= ?", now - STALE_UPLOAD)
+      .toArray();
+    await this.removeItems(stale);
+  }
 
   protected async endSpace() {
     const s = this.space();
@@ -760,6 +1110,11 @@ export class SpaceDO extends DurableObject<Env> {
 }
 
 export const NO_ACK = Symbol('no-ack');
+
+function validThumb(thumb: string, e2ee: boolean): boolean {
+  if (e2ee) return /^[A-Za-z0-9+/]+=*$/.test(thumb) && thumb.length <= 48_000;
+  return /^data:image\/(webp|jpeg|png);base64,[A-Za-z0-9+/]+=*$/.test(thumb) && thumb.length <= 40_000;
+}
 
 export async function sha256(s: string): Promise<string> {
   return b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));

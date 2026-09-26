@@ -8,7 +8,7 @@ describe('health', () => {
     const body = (await res.json()) as any;
     expect(body.ok).toBe(true);
     expect(body.data.status).toBe('ok');
-    expect(body.data.storage).toBe(false);
+    expect(body.data.storage).toBe(true);
     expect(res.headers.get('Referrer-Policy')).toBe('no-referrer');
   });
 

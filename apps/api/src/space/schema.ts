@@ -26,7 +26,7 @@ export const C2SSchema = z.discriminatedUnion('t', [
     name: z.string().min(1).max(1024).optional(),
     mime: z.string().max(255).optional(),
     encMeta: b64(4096).optional(),
-    thumb: b64(48_000).optional(),
+    thumb: z.string().max(48_000).optional(),
     e2ee: z.boolean(),
     burn: z.boolean(),
   }),

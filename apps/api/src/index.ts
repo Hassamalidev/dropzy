@@ -1,4 +1,4 @@
-import { CLOSE, type HealthRes, isSixDigits, isToken, randomToken } from '@dropzy/shared';
+import { CLOSE, type HealthRes, fromB64url, isSixDigits, isToken, randomToken } from '@dropzy/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { type Env, allowedOrigins, flag, maxCloudBytes, storageEnabled } from './env';
@@ -165,6 +165,49 @@ app.post('/v1/join', async (c) => {
   } catch (err) {
     if (isCapacityError(err)) return fail(c, 'at_capacity', 503);
     throw err;
+  }
+});
+
+// ───────────────────────── single-file links (§9.4) ─────────────────────────
+
+/** ref = base64url(DO id) + "." + itemId */
+function spaceForRef(env: Env, ref: string) {
+  const m = /^([A-Za-z0-9_-]{43})\.([A-Za-z0-9_-]{22})$/.exec(ref);
+  if (!m) return null;
+  try {
+    const bytes = fromB64url(m[1]);
+    const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    return { stub: env.SPACE.get(env.SPACE.idFromString(hex)), itemId: m[2] };
+  } catch {
+    return null;
+  }
+}
+
+app.get('/v1/files/:ref', async (c) => {
+  if (await limited(c, c.env.RL_PUBLIC)) return fail(c, 'rate_limited', 429);
+  const target = spaceForRef(c.env, c.req.param('ref'));
+  if (!target) return fail(c, 'not_found', 404);
+  try {
+    const meta = await target.stub.fileMeta(target.itemId);
+    return meta ? ok(c, meta) : fail(c, 'not_found', 404);
+  } catch (err) {
+    if (isCapacityError(err)) return fail(c, 'at_capacity', 503);
+    return fail(c, 'not_found', 404);
+  }
+});
+
+app.post('/v1/files/:ref/download', async (c) => {
+  if (!originOk(c)) return fail(c, 'forbidden', 403);
+  if (await limited(c, c.env.RL_PUBLIC)) return fail(c, 'rate_limited', 429);
+  const target = spaceForRef(c.env, c.req.param('ref'));
+  if (!target) return fail(c, 'not_found', 404);
+  try {
+    const r = await target.stub.fileDownload(target.itemId);
+    if ('error' in r) return fail(c, r.error, r.error === 'not_found' ? 404 : r.error === 'uploads_paused' ? 503 : 400);
+    return ok(c, r);
+  } catch (err) {
+    if (isCapacityError(err)) return fail(c, 'at_capacity', 503);
+    return fail(c, 'not_found', 404);
   }
 });
 
