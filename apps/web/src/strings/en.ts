@@ -48,19 +48,16 @@ export const t = {
     wifi: {
       title: 'Open it on both devices. That’s it.',
       subtitle: 'Share files and text with every device on the same Wi-Fi.',
-      features: ['Finds your devices by itself', 'Direct link to a single file', 'Search codes for busy networks'],
       active: 'Wi-Fi sharing active',
     },
     ses: {
       title: 'A private line between two devices.',
       subtitle: 'Works across any network. Only people with the link can get in.',
-      features: ['Encrypted on your device', 'Any network, any distance', 'Extend up to 6 hours'],
       active: 'Private share active',
     },
     room: {
       title: 'A room for your group.',
       subtitle: 'Everyone with the 6-digit code can share files and text here.',
-      features: ['Join with a 6-digit code', 'Lock the room anytime', 'Extend up to 48 hours'],
       active: 'Room active',
     },
     reconnecting: 'Reconnecting…',
