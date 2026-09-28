@@ -3,10 +3,10 @@
     "cleanUrls": true,
     "trailingSlash": false,
     "rewrites": [
-          { "source": "/s/:token", "destination": "/s/index.html" },
-          { "source": "/r/:token", "destination": "/r/index.html" },
-          { "source": "/f/:ref", "destination": "/f/index.html" },
-          { "source": "/j/:code", "destination": "/join/index.html" }
+          { "source": "/s/:token", "destination": "/s" },
+          { "source": "/r/:token", "destination": "/r" },
+          { "source": "/f/:ref", "destination": "/f" },
+          { "source": "/j/:code", "destination": "/join" }
     ],
     "headers": [
           {
