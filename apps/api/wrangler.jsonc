@@ -29,7 +29,7 @@
     "TURN_ENABLED": "false",
     "R2_ACCOUNT_ID": "b213b2747ff96941f167693e2496be15",
     "R2_BUCKET": "dropzy-files-hassam",
-    "R2_ENDPOINT": "s3.us-west-004.backblazeb2.com",
+    "R2_ENDPOINT": "s3.us-east-005.backblazeb2.com",
     "MAX_CLOUD_FILE_BYTES": "2147483648",
     "MAX_STORED_BYTES": "8589934592",
     "PER_IP_DAILY_UPLOAD_BYTES": "3221225472",
