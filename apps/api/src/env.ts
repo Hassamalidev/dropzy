@@ -8,7 +8,8 @@ export interface Env {
   DIRECTORY: DurableObjectNamespace<DirectoryDO>;
   GUARD: DurableObjectNamespace<GuardDO>;
   ADMIN: DurableObjectNamespace<AdminDO>;
-  FILES: R2Bucket;
+  /** Optional: local dev / relay mode. Production can use any S3-compatible store instead (R2_ENDPOINT). */
+  FILES?: R2Bucket;
   RL_CONNECT: RateLimit;
   RL_CREATE: RateLimit;
   RL_JOIN: RateLimit;
@@ -20,7 +21,10 @@ export interface Env {
   TURN_ENABLED: string;
   R2_ACCOUNT_ID: string;
   R2_BUCKET: string;
+  /** S3-compatible endpoint host, e.g. s3.us-west-004.backblazeb2.com. Unset → R2 via R2_ACCOUNT_ID. */
   R2_ENDPOINT?: string;
+  /** Signing region. Defaults to the endpoint's second label (us-west-004 above), or 'auto' for R2. */
+  S3_REGION?: string;
   MAX_CLOUD_FILE_BYTES: string;
   MAX_STORED_BYTES: string;
   PER_IP_DAILY_UPLOAD_BYTES: string;
@@ -48,9 +52,18 @@ export function allowedOrigins(env: Env): string[] {
   return [env.SITE_ORIGIN, ...(env.EXTRA_ORIGINS || '').split(',')].map((s) => s.trim()).filter(Boolean);
 }
 
+/** S3 keys plus somewhere to send them: an explicit R2_ENDPOINT, or an R2 account id. */
+export const s3Configured = (env: Env) =>
+  !!(
+    env.R2_ACCESS_KEY_ID &&
+    env.R2_SECRET_ACCESS_KEY &&
+    env.R2_BUCKET &&
+    (env.R2_ENDPOINT || (env.R2_ACCOUNT_ID && !env.R2_ACCOUNT_ID.startsWith('<')))
+  );
+
 /**
- * Uploads need the switch on and the FILES bucket bound; otherwise direct-only mode (§4.5).
- * With R2 S3 keys the bytes go straight to R2; without them the Worker relays them (see r2.ts).
+ * Uploads need the switch on and a store: S3 keys (bytes go straight to the bucket) or the FILES
+ * binding (the Worker relays them, see r2.ts). Otherwise direct-only mode (§4.5).
  */
-export const storageEnabled = (env: Env) => flag(env.STORAGE_ENABLED) && !!env.FILES;
+export const storageEnabled = (env: Env) => flag(env.STORAGE_ENABLED) && (s3Configured(env) || !!env.FILES);
 export const maxCloudBytes = (env: Env) => num(env.MAX_CLOUD_FILE_BYTES, 2 * 1024 ** 3);

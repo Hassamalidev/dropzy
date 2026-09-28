@@ -6,6 +6,8 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: './wrangler.jsonc' },
       miniflare: {
+        // Production uses an S3-compatible bucket; tests seed objects through a local R2 binding.
+        r2Buckets: ['FILES'],
         bindings: {
           IP_HASH_SECRET: 'test-ip-secret',
           PASS_SECRET: 'test-pass-secret',
