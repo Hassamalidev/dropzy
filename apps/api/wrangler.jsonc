@@ -25,10 +25,11 @@
   "vars": {
     "SITE_ORIGIN": "https://www.dropzy.tech",
     "EXTRA_ORIGINS": "http://localhost:4321",
-    "STORAGE_ENABLED": "false",
+    "STORAGE_ENABLED": "true",
     "TURN_ENABLED": "false",
     "R2_ACCOUNT_ID": "b213b2747ff96941f167693e2496be15",
     "R2_BUCKET": "dropzy-files",
+    "R2_ENDPOINT": "",
     "MAX_CLOUD_FILE_BYTES": "2147483648",
     "MAX_STORED_BYTES": "8589934592",
     "PER_IP_DAILY_UPLOAD_BYTES": "3221225472",
