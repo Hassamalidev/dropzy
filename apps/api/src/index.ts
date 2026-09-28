@@ -268,11 +268,12 @@ app.post('/v1/files/:ref/key', async (c) => {
   }
 });
 
-// ───────────────────────── relayed file bytes (no R2 S3 keys) ─────────────────────────
+// ───────────────────────── relayed file bytes (no S3 keys) ─────────────────────────
 
 app.put('/v1/blob/:token', async (c) => {
   const g = await verifyBlob(c.env.PASS_SECRET, c.req.param('token'));
   if (!g || g.m === 'get') return fail(c, 'forbidden', 403);
+  if (!c.env.FILES) return fail(c, 'not_found', 404);
   const len = Number(c.req.header('Content-Length'));
   if (!Number.isFinite(len) || len <= 0 || len > g.max || !c.req.raw.body) return fail(c, 'bad_request', 400);
   const body = c.req.raw.body.pipeThrough(new FixedLengthStream(len));
@@ -290,7 +291,7 @@ app.put('/v1/blob/:token', async (c) => {
 
 app.get('/v1/blob/:token', async (c) => {
   const g = await verifyBlob(c.env.PASS_SECRET, c.req.param('token'));
-  if (g?.m !== 'get') return fail(c, 'not_found', 404);
+  if (g?.m !== 'get' || !c.env.FILES) return fail(c, 'not_found', 404);
   const obj = await c.env.FILES.get(g.k);
   if (!obj) return fail(c, 'not_found', 404);
   const headers = new Headers();

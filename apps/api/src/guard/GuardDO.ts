@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
-import { type Env, num } from '../env';
+import { type Env, num, storageEnabled } from '../env';
+import { makeStore } from '../r2';
 
 // Quotas, cost guard and blocklist (§14.4). Single instance named "guard".
 // Stored bytes are tracked reserve → commit → release; R2 operations are estimated per UTC day.
@@ -146,16 +147,10 @@ export class GuardDO extends DurableObject<Env> {
     };
   }
 
-  /** Daily: recompute stored bytes from an R2 list and purge old rows (§12). */
+  /** Daily: recompute stored bytes from a bucket list and purge old rows (§12). */
   async alarm(): Promise<void> {
     try {
-      let total = 0;
-      let cursor: string | undefined;
-      do {
-        const page = await this.env.FILES.list({ prefix: 'f/', cursor, limit: 1000 });
-        for (const o of page.objects) total += o.size;
-        cursor = page.truncated ? page.cursor : undefined;
-      } while (cursor);
+      const total = storageEnabled(this.env) ? await makeStore(this.env, '').totalSize('f/') : 0;
       this.sql.exec('UPDATE storage SET stored_bytes = ? WHERE id = 1', total);
     } catch (err) {
       console.error('guard reconcile', (err as Error).message);

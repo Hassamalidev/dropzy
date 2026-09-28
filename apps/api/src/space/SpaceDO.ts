@@ -633,8 +633,8 @@ export class SpaceDO extends DurableObject<Env> {
         throw new ApiError('bad_request');
       }
     } else {
-      const head = await this.env.FILES.head(key);
-      if (!head || head.size !== stored) throw new ApiError('bad_request');
+      const size = await this.store(att.origin).head(key);
+      if (size !== stored) throw new ApiError('bad_request');
     }
     this.sql.exec("UPDATE items SET status = 'ready', upload_id = NULL WHERE id = ?", row.id);
     this.progress.delete(row.id);
@@ -1053,9 +1053,9 @@ export class SpaceDO extends DurableObject<Env> {
       }
     }
     try {
-      await this.env.FILES.delete(files.map((r) => r.storage_key as string));
+      await this.store('').delete(files.map((r) => r.storage_key as string));
     } catch (err) {
-      console.error('r2 delete', (err as Error).message);
+      console.error('store delete', (err as Error).message);
     }
     try {
       if (committed) await this.guard().release(committed, true);
