@@ -20,6 +20,7 @@ export interface Env {
   TURN_ENABLED: string;
   R2_ACCOUNT_ID: string;
   R2_BUCKET: string;
+  R2_ENDPOINT?: string;
   MAX_CLOUD_FILE_BYTES: string;
   MAX_STORED_BYTES: string;
   PER_IP_DAILY_UPLOAD_BYTES: string;
