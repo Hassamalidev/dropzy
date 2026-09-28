@@ -23,7 +23,7 @@
     { "name": "RL_PUBLIC", "namespace_id": "1004", "simple": { "limit": 60, "period": 60 } }
   ],
   "vars": {
-    "SITE_ORIGIN": "https://dropzy.tech",
+    "SITE_ORIGIN": "https://www.dropzy.tech",
     "EXTRA_ORIGINS": "http://localhost:4321",
     "STORAGE_ENABLED": "false",
     "TURN_ENABLED": "false",
