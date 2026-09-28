@@ -14,7 +14,7 @@
                   "headers": [
                             {
                                         "key": "Content-Security-Policy",
-                                        "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://b213b2747ff96941f167693e2496be15.r2.cloudflarestorage.com; media-src 'self' blob: https://b213b2747ff96941f167693e2496be15.r2.cloudflarestorage.com; connect-src 'self' https://dropzy-api.hassammirza196.workers.dev wss://dropzy-api.hassammirza196.workers.dev https://b213b2747ff96941f167693e2496be15.r2.cloudflarestorage.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+                                        "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://b213b2747ff96941f167693e2496be15.r2.cloudflarestorage.com https://s3.us-west-004.backblazeb2.com; media-src 'self' blob: https://b213b2747ff96941f167693e2496be15.r2.cloudflarestorage.com https://s3.us-west-004.backblazeb2.com; connect-src 'self' https://dropzy-api.hassammirza196.workers.dev wss://dropzy-api.hassammirza196.workers.dev https://b213b2747ff96941f167693e2496be15.r2.cloudflarestorage.com https://s3.us-west-004.backblazeb2.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
                             },
                             { "key": "Referrer-Policy", "value": "no-referrer" },
                             { "key": "X-Content-Type-Options", "value": "nosniff" },
