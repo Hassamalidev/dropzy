@@ -39,7 +39,8 @@ export function FilesPanel({ query }: { query: string }) {
 
   const direct = space.supportsDirect();
   const up = formatBytes(space.maxUpload).replace('.0', '');
-  const hint = uploads === 'on' ? (direct ? t.files.hintBoth(up) : t.files.hintUploadOnly(up)) : t.files.hintDirectOnly;
+  const day = formatBytes(space.dailyUpload).replace('.0', '');
+  const hint = uploads === 'on' ? (direct ? t.files.hintBoth(up, day) : t.files.hintUploadOnly(up, day)) : t.files.hintDirectOnly;
 
   return (
     <section className="flex min-w-0 flex-col gap-3.5 p-4 sm:p-5" aria-labelledby="files-title">

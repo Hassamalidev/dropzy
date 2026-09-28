@@ -19,6 +19,9 @@ export type SpaceInfo = {
   busy?: boolean;
   viaPass?: boolean; // net
   uploads: UploadsState;
+  /** Cloud-upload limits, so the page shows what the server enforces. */
+  maxUploadBytes?: number;
+  dailyUploadBytes?: number;
 };
 
 export type Item = {
@@ -81,6 +84,7 @@ export type ErrorCode =
   | 'ended'
   | 'forbidden'
   | 'rate_limited'
+  | 'daily_limit'
   | 'too_large'
   | 'space_full'
   | 'uploads_paused'

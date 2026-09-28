@@ -14,6 +14,9 @@ export default defineConfig({
           ADMIN_TOKEN: 'test-admin-token',
           STORAGE_ENABLED: 'true',
           R2_ACCOUNT_ID: 'testaccount',
+          // Independent of the production bucket in wrangler.jsonc.
+          R2_ENDPOINT: '',
+          R2_BUCKET: 'dropzy-files',
           R2_ACCESS_KEY_ID: 'test-key-id',
           R2_SECRET_ACCESS_KEY: 'test-secret',
           MAX_CLOUD_FILE_BYTES: '104857600',

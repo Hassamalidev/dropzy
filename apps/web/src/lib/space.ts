@@ -6,7 +6,7 @@ import {
   type PassCreateAck,
   type SignalData,
   type DownloadUrlAck,
-  GiB,
+  MiB,
   DEVICE_LABEL,
   type Item,
   type Peer,
@@ -88,10 +88,20 @@ export class Space {
   key: Uint8Array<ArrayBuffer> | null;
   private toastN = 0;
   private tickTimer = 0;
+  /** Room: "left" waits a moment, so a quick reconnect doesn't read as left + joined. */
+  private leaving = new Map<string, number>();
   private pendingDeletes = new Map<string, number>();
   protected aborts = new Map<string, AbortController>();
   protected samples = new Map<string, { t: number; loaded: number; speed: number }>();
-  readonly maxUpload = Number(import.meta.env.PUBLIC_MAX_UPLOAD_BYTES) || 2 * GiB;
+  /** Per-file cloud limit: what the server says, else the build-time default. */
+  get maxUpload(): number {
+    return this.store.get().space?.maxUploadBytes ?? (Number(import.meta.env.PUBLIC_MAX_UPLOAD_BYTES) || 100 * MiB);
+  }
+
+  /** Per-person daily upload allowance, as the server reports it. */
+  get dailyUpload(): number {
+    return this.store.get().space?.dailyUploadBytes ?? 500 * MiB;
+  }
   /** Hooks for later features (direct transfer, uploads). */
   protected listeners: ((m: S2C) => void)[] = [];
 
@@ -167,6 +177,8 @@ export class Space {
     void this.directP?.then((d) => d.closeAll());
     this.socket.stop();
     clearTimeout(this.tickTimer);
+    for (const id of this.leaving.values()) clearTimeout(id);
+    this.leaving.clear();
   }
 
   on(fn: (m: S2C) => void) {
@@ -262,9 +274,42 @@ export class Space {
   private arrivals(before: PeerList, after: PeerList) {
     if (!Array.isArray(before) || !Array.isArray(after)) return;
     const me = this.store.get().peerId;
-    const had = new Set(before.map((p) => p.peerId));
+    const had = new Map(before.map((p) => [p.peerId, p]));
+    if (this.mode !== 'room') {
+      for (const p of after) {
+        if (p.peerId !== me && !had.has(p.peerId)) this.toast(t.devices.arrived(p.name, DEVICE_LABEL[p.type]));
+      }
+      return;
+    }
+    // Rooms: who joined, left or renamed. A reconnect gets a new peerId, so match by name + type.
+    const who = (p: Peer) => `${p.type}:${p.name}`;
+    const now = new Set(after.map((p) => p.peerId));
     for (const p of after) {
-      if (p.peerId !== me && !had.has(p.peerId)) this.toast(t.devices.arrived(p.name, DEVICE_LABEL[p.type]));
+      if (p.peerId === me) continue;
+      const prev = had.get(p.peerId);
+      if (prev) {
+        if (prev.name !== p.name) this.toast(t.devices.renamedOther(prev.name, p.name));
+        continue;
+      }
+      const pending = this.leaving.get(who(p));
+      if (pending !== undefined) {
+        clearTimeout(pending);
+        this.leaving.delete(who(p));
+      } else {
+        this.toast(t.devices.joined(p.name));
+      }
+    }
+    for (const p of before) {
+      if (p.peerId === me || now.has(p.peerId)) continue;
+      const key = who(p);
+      clearTimeout(this.leaving.get(key));
+      this.leaving.set(
+        key,
+        window.setTimeout(() => {
+          this.leaving.delete(key);
+          this.toast(t.devices.left(p.name));
+        }, LEAVE_GRACE),
+      );
     }
   }
 
@@ -303,6 +348,8 @@ export class Space {
         return t.moments.ended;
       case 'uploads_paused':
         return t.moments.uploadsPaused;
+      case 'daily_limit':
+        return t.moments.dailyLimit(formatBytes(this.dailyUpload).replace('.0', ''), nextUtcMidnight());
       case 'locked':
         return t.moments.locked;
       case 'max_length':
@@ -957,6 +1004,9 @@ export class Space {
 
 /** How long the "send this file?" prompt stays up; a little under the server's wait (KEY_WAIT_MS). */
 const KEY_ASK_MS = 55_000;
+
+/** A socket that drops and comes back within this long wasn't really "left" (see arrivals). */
+const LEAVE_GRACE = 8_000;
 
 function sortItems(items: Item[]): Item[] {
   return [...items].sort((a, b) => b.createdAt - a.createdAt);

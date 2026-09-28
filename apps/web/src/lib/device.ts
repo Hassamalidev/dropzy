@@ -51,6 +51,11 @@ export function setDeviceName(name: string) {
   write('dz-name', name);
 }
 
+/** True once the person has picked a name (not one guessed from the browser). */
+export function hasChosenName(): boolean {
+  return chosenName() !== null;
+}
+
 function chosenName(): string | null {
   const n = memName ?? read('dz-name');
   // Older versions stored a random "Blue Fox" here; those weren't chosen, so drop them.

@@ -28,6 +28,7 @@ export interface Env {
   MAX_CLOUD_FILE_BYTES: string;
   MAX_STORED_BYTES: string;
   PER_IP_DAILY_UPLOAD_BYTES: string;
+  PER_IP_DAILY_UPLOADS: string;
   CLASS_A_DAILY_BUDGET: string;
   CLASS_B_DAILY_BUDGET: string;
   BUSY_NETWORK_DEVICES: string;
@@ -66,4 +67,6 @@ export const s3Configured = (env: Env) =>
  * binding (the Worker relays them, see r2.ts). Otherwise direct-only mode (§4.5).
  */
 export const storageEnabled = (env: Env) => flag(env.STORAGE_ENABLED) && (s3Configured(env) || !!env.FILES);
-export const maxCloudBytes = (env: Env) => num(env.MAX_CLOUD_FILE_BYTES, 2 * 1024 ** 3);
+export const maxCloudBytes = (env: Env) => num(env.MAX_CLOUD_FILE_BYTES, 100 * 1024 ** 2);
+export const dailyUploadBytes = (env: Env) => num(env.PER_IP_DAILY_UPLOAD_BYTES, 500 * 1024 ** 2);
+export const dailyUploads = (env: Env) => num(env.PER_IP_DAILY_UPLOADS, 50);

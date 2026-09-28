@@ -92,6 +92,11 @@ export const t = {
     renameHint: '1–24 characters, like “Sara’s iPhone”. Others here will see it.',
     save: 'Save',
     renamed: 'Name updated.',
+    joined: (name: string) => `${name} joined`,
+    left: (name: string) => `${name} left`,
+    renamedOther: (from: string, to: string) => `${from} is now ${to}`,
+    roomTitle: (n: number) => (n === 1 ? 'Just you here' : `${n} devices here`),
+    addName: 'Add your name',
     hero: {
       title: 'Send to a device nearby',
       subtitle: 'Everyone on your Wi‑Fi with this page open shows up by name. Pick one and send.',
@@ -145,9 +150,9 @@ export const t = {
     drop: 'Drop files here',
     tap: 'Tap to choose files',
     choose: 'Choose files',
-    hintBoth: (up: string) => `Up to ${up} per file · Bigger files go direct`,
+    hintBoth: (up: string, day: string) => `Up to ${up} per file · ${day} a day · Bigger files go direct`,
     hintDirectOnly: 'Goes straight to devices that are here',
-    hintUploadOnly: (up: string) => `Up to ${up} per file`,
+    hintUploadOnly: (up: string, day: string) => `Up to ${up} per file · ${day} a day`,
     dropOverlay: 'Drop to share',
     burn: 'Delete after 1 download',
     empty: {
@@ -281,8 +286,7 @@ export const t = {
   moments: {
     directFailed: 'Couldn’t connect directly, so we’re uploading it instead.',
     offlineUpload: 'You’re offline. We’ll pick up where we left off.',
-    tooBigNobody:
-      'Files over 2 GB can only go directly. Open Dropzy on the other device and keep both open.',
+    tooBigNobody: 'Files this big can only go directly. Open Dropzy on the other device and keep both open.',
     tooBig: (size: string) =>
       `Files over ${size} can only go directly. Open Dropzy on the other device and keep both open.`,
     uploadsPaused: 'Uploads are paused for today. Sending directly still works — keep both devices open.',
@@ -294,6 +298,8 @@ export const t = {
     wrongCode: 'No room with that code. Check the digits and try again.',
     locked: 'This room is locked. Ask someone inside to unlock it.',
     rateLimited: 'Slow down a little — try again in a minute.',
+    dailyLimit: (day: string, time: string) =>
+      `You’ve used today’s ${day} upload allowance. It resets at ${time}. Sending directly still works — keep both devices open.`,
     atCapacity: (time: string) => `Dropzy is at capacity for today. It’ll be back at ${time}.`,
     tooBigIphone: 'This file is too big to save in this iPhone’s browser. Open the link on a computer.',
     unsaved: (n: number) => `You have ${n} received ${n === 1 ? 'file' : 'files'} you haven’t saved.`,

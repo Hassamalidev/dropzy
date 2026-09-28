@@ -49,7 +49,7 @@ import {
   stripUnsafe,
 } from '@dropzy/shared';
 import { DurableObject } from 'cloudflare:workers';
-import { type Env, maxCloudBytes, num, storageEnabled } from '../env';
+import { type Env, dailyUploadBytes, maxCloudBytes, num, storageEnabled } from '../env';
 import { type Store, makeStore } from '../r2';
 import { makePass } from '../tokens';
 import { type C2SMsg, C2SSchema } from './schema';
@@ -281,6 +281,10 @@ export class SpaceDO extends DurableObject<Env> {
   protected spaceInfo(att?: Att): SpaceInfo {
     const s = this.space() as SpaceRow;
     const info: SpaceInfo = { kind: s.kind, ref: this.ref(), uploads: this.uploadsState() };
+    if (info.uploads !== 'off') {
+      info.maxUploadBytes = maxCloudBytes(this.env);
+      info.dailyUploadBytes = dailyUploadBytes(this.env);
+    }
     if (s.kind !== 'net') {
       info.expiresAt = s.expires_at ?? undefined;
       info.maxExpiresAt = s.max_expires_at ?? undefined;

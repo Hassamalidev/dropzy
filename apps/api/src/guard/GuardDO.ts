@@ -1,11 +1,11 @@
 import { DurableObject } from 'cloudflare:workers';
-import { type Env, num, storageEnabled } from '../env';
+import { type Env, dailyUploadBytes, dailyUploads, num, storageEnabled } from '../env';
 import { makeStore } from '../r2';
 
 // Quotas, cost guard and blocklist (§14.4). Single instance named "guard".
 // Stored bytes are tracked reserve → commit → release; R2 operations are estimated per UTC day.
 
-export type Reserve = { ok: true } | { ok: false; error: 'uploads_paused' | 'rate_limited' | 'forbidden' };
+export type Reserve = { ok: true } | { ok: false; error: 'uploads_paused' | 'daily_limit' | 'forbidden' };
 
 type Usage = { day: string; class_a: number; class_b: number; upload_bytes: number };
 
@@ -15,9 +15,6 @@ export const utcDay = (t = Date.now()) => new Date(t).toISOString().slice(0, 10)
 
 export class GuardDO extends DurableObject<Env> {
   private sql: SqlStorage;
-  // Per-IP daily upload bytes live in memory; lenient if they reset (§12).
-  private perIp = new Map<string, number>();
-  private perIpDay = utcDay();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -25,6 +22,7 @@ export class GuardDO extends DurableObject<Env> {
     this.sql.exec(`CREATE TABLE IF NOT EXISTS storage (id INTEGER PRIMARY KEY CHECK (id = 1), stored_bytes INTEGER NOT NULL, reserved_bytes INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS usage (day TEXT PRIMARY KEY, class_a INTEGER NOT NULL, class_b INTEGER NOT NULL, upload_bytes INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS blocks (ip_hash TEXT PRIMARY KEY, until INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS ip_usage (day TEXT NOT NULL, ip_hash TEXT NOT NULL, bytes INTEGER NOT NULL, files INTEGER NOT NULL, PRIMARY KEY (day, ip_hash));
       INSERT OR IGNORE INTO storage (id, stored_bytes, reserved_bytes) VALUES (1, 0, 0);`);
     ctx.blockConcurrencyWhile(async () => {
       if ((await ctx.storage.getAlarm()) === null) await ctx.storage.setAlarm(nextDailyRun());
@@ -34,7 +32,8 @@ export class GuardDO extends DurableObject<Env> {
   private limits() {
     return {
       maxStored: num(this.env.MAX_STORED_BYTES, 8 * 1024 ** 3),
-      perIp: num(this.env.PER_IP_DAILY_UPLOAD_BYTES, 3 * 1024 ** 3),
+      perIp: dailyUploadBytes(this.env),
+      perIpFiles: dailyUploads(this.env),
       classA: num(this.env.CLASS_A_DAILY_BUDGET, 30_000),
       classB: num(this.env.CLASS_B_DAILY_BUDGET, 300_000),
     };
@@ -84,12 +83,11 @@ export class GuardDO extends DurableObject<Env> {
     if (this.blocked(ipHash)) return { ok: false, error: 'forbidden' };
     const l = this.limits();
     const day = utcDay();
-    if (day !== this.perIpDay) {
-      this.perIp.clear();
-      this.perIpDay = day;
-    }
-    const mine = this.perIp.get(ipHash) ?? 0;
-    if (mine + bytes > l.perIp) return { ok: false, error: 'rate_limited' };
+    // Per-person daily allowance (by IP hash), kept in storage so it survives restarts.
+    const mine = this.sql
+      .exec<{ bytes: number; files: number }>('SELECT bytes, files FROM ip_usage WHERE day = ? AND ip_hash = ?', day, ipHash)
+      .toArray()[0] ?? { bytes: 0, files: 0 };
+    if (mine.bytes + bytes > l.perIp || mine.files + 1 > l.perIpFiles) return { ok: false, error: 'daily_limit' };
     const s = this.storage();
     if (s.stored_bytes + s.reserved_bytes + bytes > l.maxStored) return { ok: false, error: 'uploads_paused' };
     const u = this.usage(day);
@@ -99,7 +97,13 @@ export class GuardDO extends DurableObject<Env> {
     u.class_a += classA;
     u.upload_bytes += bytes;
     this.saveUsage(u);
-    this.perIp.set(ipHash, mine + bytes);
+    this.sql.exec(
+      'INSERT OR REPLACE INTO ip_usage (day, ip_hash, bytes, files) VALUES (?, ?, ?, ?)',
+      day,
+      ipHash,
+      mine.bytes + bytes,
+      mine.files + 1,
+    );
     return { ok: true };
   }
 
@@ -156,6 +160,7 @@ export class GuardDO extends DurableObject<Env> {
       console.error('guard reconcile', (err as Error).message);
     }
     this.sql.exec('DELETE FROM usage WHERE day < ?', utcDay(Date.now() - 7 * DAY));
+    this.sql.exec('DELETE FROM ip_usage WHERE day < ?', utcDay());
     this.sql.exec('DELETE FROM blocks WHERE until < ?', Date.now());
     await this.ctx.storage.setAlarm(nextDailyRun());
   }

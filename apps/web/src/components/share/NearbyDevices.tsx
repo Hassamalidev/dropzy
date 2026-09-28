@@ -146,19 +146,19 @@ const ICONS: Record<DeviceType, typeof Smartphone> = {
   other: Monitor,
 };
 
-function TypeIcon({ type, small }: { type: DeviceType; small?: boolean }) {
+export function TypeIcon({ type, small, tiny }: { type: DeviceType; small?: boolean; tiny?: boolean }) {
   const Icon = ICONS[type] ?? Monitor;
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-full bg-accent-soft text-accent-ink dark:bg-slate-800 dark:text-accent ${small ? 'size-7' : 'size-11'}`}
+      className={`inline-flex items-center justify-center rounded-full bg-accent-soft text-accent-ink dark:bg-slate-800 dark:text-accent ${tiny ? 'size-6' : small ? 'size-7' : 'size-11'}`}
       aria-hidden
     >
-      <Icon size={small ? 15 : 22} />
+      <Icon size={tiny ? 13 : small ? 15 : 22} />
     </span>
   );
 }
 
-function RenameDialog({ current, onClose, onSave }: { current: string; onClose: () => void; onSave: (name: string) => void }) {
+export function RenameDialog({ current, onClose, onSave }: { current: string; onClose: () => void; onSave: (name: string) => void }) {
   const [value, setValue] = useState(current);
   const valid = value.trim().length >= 1 && value.trim().length <= DEVICE_NAME_MAX;
   return (
